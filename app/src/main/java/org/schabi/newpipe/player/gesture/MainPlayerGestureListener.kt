@@ -44,14 +44,11 @@ class MainPlayerGestureListener(
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
-        
-        // Handle touch up events for hold gesture
         when (event.action) {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 cancelHoldGesture()
             }
         }
-        
         if (event.action == MotionEvent.ACTION_UP && isMoving) {
             isMoving = false
             onScrollEnd(event)
@@ -70,17 +67,15 @@ class MainPlayerGestureListener(
     }
 
     override fun onDown(e: MotionEvent): Boolean {
-        if (DEBUG)
+        if (DEBUG) {
             Log.d(TAG, "onDown called with e = [$e]")
-
+        }
         // Start hold gesture detection for 2x speed
         startHoldGestureDetection()
-
         if (isDoubleTapping && isDoubleTapEnabled) {
             doubleTapControls?.onDoubleTapProgressDown(getDisplayPortion(e))
             return true
         }
-
         if (onDownNotDoubleTapping(e)) {
             return super.onDown(e)
         }
@@ -88,43 +83,35 @@ class MainPlayerGestureListener(
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-        if (DEBUG)
+        if (DEBUG) {
             Log.d(TAG, "onSingleTapConfirmed() called with: e = [$e]")
-
+        }
         // Cancel hold gesture on tap
         cancelHoldGesture()
-
-        if (isDoubleTapping)
+        if (isDoubleTapping) {
             return true
+        }
         super.onSingleTapConfirmed(e)
-
-        if (player.currentState != Player.STATE_BLOCKED)
+        if (player.currentState != Player.STATE_BLOCKED) {
             onSingleTap()
+        }
         return true
     }
 
     private fun onScrollVolume(distanceY: Float) {
         val bar: ProgressBar = binding.volumeProgressBar
         val audioReactor: AudioReactor = player.audioReactor
-
-        // If we just started sliding, change the progress bar to match the system volume
         if (!binding.volumeRelativeLayout.isVisible) {
             val volumePercent: Float = audioReactor.volume / audioReactor.maxVolume.toFloat()
             bar.progress = (volumePercent * bar.max).toInt()
         }
-
-        // Update progress bar
         binding.volumeProgressBar.incrementProgressBy(distanceY.toInt())
-
-        // Update volume
         val currentProgressPercent: Float = bar.progress / bar.max.toFloat()
         val currentVolume = (audioReactor.maxVolume * currentProgressPercent).toInt()
         audioReactor.volume = currentVolume
         if (DEBUG) {
             Log.d(TAG, "onScroll().volumeControl, currentVolume = $currentVolume")
         }
-
-        // Update player center image
         binding.volumeImageView.setImageDrawable(
             AppCompatResources.getDrawable(
                 player.context,
@@ -136,8 +123,6 @@ class MainPlayerGestureListener(
                 }
             )
         )
-
-        // Make sure the correct layout is visible
         if (!binding.volumeRelativeLayout.isVisible) {
             binding.volumeRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
         }
@@ -149,28 +134,16 @@ class MainPlayerGestureListener(
         val window = parent.window
         val layoutParams = window.attributes
         val bar: ProgressBar = binding.brightnessProgressBar
-
-        // Update progress bar
         val oldBrightness = layoutParams.screenBrightness
         bar.progress = (bar.max * oldBrightness.coerceIn(0f, 1f)).toInt()
         bar.incrementProgressBy(distanceY.toInt())
-
-        // Update brightness
         val currentProgressPercent = bar.progress.toFloat() / bar.max
         layoutParams.screenBrightness = currentProgressPercent
         window.attributes = layoutParams
-
-        // Save current brightness level
         PlayerHelper.setScreenBrightness(parent, currentProgressPercent)
         if (DEBUG) {
-            Log.d(
-                TAG,
-                "onScroll().brightnessControl, " +
-                    "currentBrightness = " + currentProgressPercent
-            )
+            Log.d(TAG, "onScroll().brightnessControl, currentBrightness = $currentProgressPercent")
         }
-
-        // Update player center image
         binding.brightnessImageView.setImageDrawable(
             AppCompatResources.getDrawable(
                 player.context,
@@ -181,8 +154,6 @@ class MainPlayerGestureListener(
                 }
             )
         )
-
-        // Make sure the correct layout is visible
         if (!binding.brightnessRelativeLayout.isVisible) {
             binding.brightnessRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
         }
@@ -208,48 +179,33 @@ class MainPlayerGestureListener(
         if (initialEvent == null || !playerUi.isFullscreen) {
             return false
         }
-
         // Cancel hold gesture when scrolling (preserves existing gestures)
         cancelHoldGesture()
-
-        // Calculate heights of status and navigation bars
         val statusBarHeight = getAndroidDimenPx(player.context, "status_bar_height")
         val navigationBarHeight = getAndroidDimenPx(player.context, "navigation_bar_height")
-
-        // Do not handle this event if initially it started from status or navigation bars
         val isTouchingStatusBar = initialEvent.y < statusBarHeight
         val isTouchingNavigationBar = initialEvent.y > (binding.root.height - navigationBarHeight)
         if (isTouchingStatusBar || isTouchingNavigationBar) {
             return false
         }
-
-        val insideThreshold = abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (
-            !isMoving && (insideThreshold || abs(distanceX) > abs(distanceY)) ||
+        val insideThreshold = kotlin.math.abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
+        if (!isMoving && (insideThreshold || kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY)) ||
             player.currentState == Player.STATE_COMPLETED
         ) {
             return false
         }
-
         isMoving = true
-
-        // -- Brightness and Volume control --
         if (getDisplayHalfPortion(initialEvent) == DisplayPortion.RIGHT_HALF) {
             when (PlayerHelper.getActionForRightGestureSide(player.context)) {
-                player.context.getString(R.string.volume_control_key) ->
-                    onScrollVolume(distanceY)
-                player.context.getString(R.string.brightness_control_key) ->
-                    onScrollBrightness(distanceY)
+                player.context.getString(R.string.volume_control_key) -> onScrollVolume(distanceY)
+                player.context.getString(R.string.brightness_control_key) -> onScrollBrightness(distanceY)
             }
         } else {
             when (PlayerHelper.getActionForLeftGestureSide(player.context)) {
-                player.context.getString(R.string.volume_control_key) ->
-                    onScrollVolume(distanceY)
-                player.context.getString(R.string.brightness_control_key) ->
-                    onScrollBrightness(distanceY)
+                player.context.getString(R.string.volume_control_key) -> onScrollVolume(distanceY)
+                player.context.getString(R.string.brightness_control_key) -> onScrollBrightness(distanceY)
             }
         }
-
         return true
     }
 
@@ -269,7 +225,6 @@ class MainPlayerGestureListener(
     }
 
     // NEW METHODS FOR HOLD GESTURE 2X SPEED FEATURE
-
     private fun startHoldGestureDetection() {
         holdGestureRunnable = Runnable {
             activateHoldGesture()
@@ -280,16 +235,9 @@ class MainPlayerGestureListener(
     private fun activateHoldGesture() {
         if (!isHoldingForSpeed) {
             isHoldingForSpeed = true
-            
-            // Store current speed
             originalSpeed = getCurrentPlaybackSpeed()
-            
-            // Set speed to 2x using Media3 ExoPlayer
             setPlaybackSpeed(2.0f)
-            
-            // Show 2x speed indicator
             showSpeedToast("2x Speed - Hold to Continue")
-            
             if (DEBUG) {
                 Log.d(TAG, "Hold gesture activated: 2x speed")
             }
@@ -299,10 +247,7 @@ class MainPlayerGestureListener(
     private fun deactivateHoldGesture() {
         if (isHoldingForSpeed) {
             isHoldingForSpeed = false
-            
-            // Restore original speed
             setPlaybackSpeed(originalSpeed)
-            
             if (DEBUG) {
                 Log.d(TAG, "Hold gesture deactivated: restored ${originalSpeed}x speed")
             }
