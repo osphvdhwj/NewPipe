@@ -1,7 +1,5 @@
 package org.schabi.newpipe.player.gesture
 
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -19,7 +17,6 @@ import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
 import org.schabi.newpipe.player.Player
-import org.schabi.newpipe.player.gesture.DisplayPortion.MIDDLE
 import org.schabi.newpipe.player.helper.AudioReactor
 import org.schabi.newpipe.player.helper.PlayerHelper
 import org.schabi.newpipe.player.ui.MainPlayerUi
@@ -40,23 +37,23 @@ import kotlin.math.abs
 class ImprovedMainPlayerGestureListener(
     private val playerUi: MainPlayerUi
 ) : BasePlayerGestureListener(playerUi), OnTouchListener, PlayerGestureCallbacks {
-    
+
     private var isMoving = false
     private var speedOverlay: TextView? = null
-    
+
     // Use the new gesture controller for improved hold-to-2x functionality
     private val gestureController = PlayerGestureController(player.context, this)
-    
+
     // Touch tracking for movement detection
     private var downX = 0f
     private var downY = 0f
     private val touchSlopPx by lazy {
         (player.context.resources.displayMetrics.density * 6).toInt()
     }
-    
+
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
-        
+
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
@@ -76,12 +73,12 @@ class ImprovedMainPlayerGestureListener(
                 }
             }
         }
-        
+
         // Try gesture controller first (hold-to-2x has priority)
         if (gestureController.handleTouchEvent(event)) {
             return true
         }
-        
+
         // Handle parent disallow intercept for fullscreen
         return when (event.action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
@@ -95,19 +92,19 @@ class ImprovedMainPlayerGestureListener(
             else -> true
         }
     }
-    
+
     override fun onDown(e: MotionEvent): Boolean {
         if (DEBUG) {
             Log.d(TAG, "onDown called with e = [$e]")
         }
         return super.onDown(e)
     }
-    
+
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
         // Don't call super - let gestureController handle control visibility
         return false
     }
-    
+
     // Preserve all existing scroll gesture functionality
     override fun onScroll(
         initialEvent: MotionEvent?,
@@ -118,7 +115,7 @@ class ImprovedMainPlayerGestureListener(
         if (initialEvent == null || !playerUi.isFullscreen) {
             return false
         }
-        
+
         // Check for system UI areas
         val statusBarHeight = getAndroidDimenPx(player.context, "status_bar_height")
         val navigationBarHeight = getAndroidDimenPx(player.context, "navigation_bar_height")
@@ -127,16 +124,16 @@ class ImprovedMainPlayerGestureListener(
         if (isTouchingStatusBar || isTouchingNavigationBar) {
             return false
         }
-        
+
         val insideThreshold = abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
         if (!isMoving && (insideThreshold || abs(distanceX) > abs(distanceY)) ||
             player.currentState == Player.STATE_COMPLETED
         ) {
             return false
         }
-        
+
         isMoving = true
-        
+
         // Handle volume/brightness gestures (preserved functionality)
         if (getDisplayHalfPortion(initialEvent) == DisplayPortion.RIGHT_HALF) {
             when (PlayerHelper.getActionForRightGestureSide(player.context)) {
@@ -151,7 +148,7 @@ class ImprovedMainPlayerGestureListener(
         }
         return true
     }
-    
+
     private fun onScrollVolume(distanceY: Float) {
         val bar: ProgressBar = binding.volumeProgressBar
         val audioReactor: AudioReactor = player.audioReactor
@@ -182,7 +179,7 @@ class ImprovedMainPlayerGestureListener(
         }
         binding.brightnessRelativeLayout.isVisible = false
     }
-    
+
     private fun onScrollBrightness(distanceY: Float) {
         val parent: AppCompatActivity = playerUi.parentActivity.orElse(null) ?: return
         val window = parent.window
@@ -213,7 +210,7 @@ class ImprovedMainPlayerGestureListener(
         }
         binding.volumeRelativeLayout.isVisible = false
     }
-    
+
     override fun onScrollEnd(event: MotionEvent) {
         super.onScrollEnd(event)
         if (binding.volumeRelativeLayout.isVisible) {
@@ -223,7 +220,7 @@ class ImprovedMainPlayerGestureListener(
             binding.brightnessRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
         }
     }
-    
+
     override fun getDisplayPortion(e: MotionEvent): DisplayPortion {
         return when {
             e.x < binding.root.width / 3.0 -> DisplayPortion.LEFT
@@ -231,37 +228,37 @@ class ImprovedMainPlayerGestureListener(
             else -> DisplayPortion.MIDDLE
         }
     }
-    
+
     override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion {
         return when {
             e.x < binding.root.width / 2.0 -> DisplayPortion.LEFT_HALF
             else -> DisplayPortion.RIGHT_HALF
         }
     }
-    
+
     // ===== PlayerGestureCallbacks Implementation =====
-    
+
     override fun showControls() {
         // Delegate to existing control visibility logic
         playerUi.showControls(0)
     }
-    
+
     override fun hideControls() {
-        // Delegate to existing control visibility logic  
+        // Delegate to existing control visibility logic
         playerUi.hideControls(0, 0)
     }
-    
+
     override fun showSpeedIndicator(speed: Float) {
         val overlay = ensureSpeedOverlay()
         overlay.text = "${speed.toInt()}×"
         overlay.bringToFront()
         overlay.animate().alpha(1.0f).setDuration(120).start()
     }
-    
+
     override fun hideSpeedIndicator() {
         speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.start()
     }
-    
+
     override fun setPlaybackSpeed(speed: Float) {
         try {
             player.exoPlayer?.let { exoPlayer ->
@@ -273,7 +270,7 @@ class ImprovedMainPlayerGestureListener(
             if (DEBUG) Log.e(TAG, "Error setting playback speed", e)
         }
     }
-    
+
     override fun onHapticFeedback() {
         try {
             val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
@@ -286,7 +283,7 @@ class ImprovedMainPlayerGestureListener(
             }
         } catch (_: Exception) { }
     }
-    
+
     private fun ensureSpeedOverlay(): TextView {
         speedOverlay?.let { return it }
         val context = player.context
@@ -317,11 +314,11 @@ class ImprovedMainPlayerGestureListener(
         speedOverlay = overlay
         return overlay
     }
-    
+
     fun cleanup() {
         gestureController.cleanup()
     }
-    
+
     companion object {
         private val TAG = ImprovedMainPlayerGestureListener::class.java.simpleName
         private val DEBUG = MainActivity.DEBUG
