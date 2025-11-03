@@ -11,7 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
-import androidx.media3.common.PlaybackParameters
+import com.google.android.exoplayer2.PlaybackParameters
 import org.schabi.newpipe.MainActivity
 import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
@@ -72,14 +72,9 @@ class MainPlayerGestureListener(
         }
         // Start hold gesture detection for 2x speed
         startHoldGestureDetection()
-        if (isDoubleTapping && isDoubleTapEnabled) {
-            doubleTapControls?.onDoubleTapProgressDown(getDisplayPortion(e))
-            return true
-        }
-        if (onDownNotDoubleTapping(e)) {
-            return super.onDown(e)
-        }
-        return true
+
+        // Do NOT access isDoubleTapEnabled or doubleTapControls (they are private in super)
+        return super.onDown(e)
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -88,14 +83,7 @@ class MainPlayerGestureListener(
         }
         // Cancel hold gesture on tap
         cancelHoldGesture()
-        if (isDoubleTapping) {
-            return true
-        }
-        super.onSingleTapConfirmed(e)
-        if (player.currentState != Player.STATE_BLOCKED) {
-            onSingleTap()
-        }
-        return true
+        return super.onSingleTapConfirmed(e)
     }
 
     private fun onScrollVolume(distanceY: Float) {
@@ -188,8 +176,8 @@ class MainPlayerGestureListener(
         if (isTouchingStatusBar || isTouchingNavigationBar) {
             return false
         }
-        val insideThreshold = kotlin.math.abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (!isMoving && (insideThreshold || kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY)) ||
+        val insideThreshold = abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
+        if (!isMoving && (insideThreshold || abs(distanceX) > abs(distanceY)) ||
             player.currentState == Player.STATE_COMPLETED
         ) {
             return false
