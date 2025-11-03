@@ -1,13 +1,17 @@
 package org.schabi.newpipe.player.gesture
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
+import androidx.media3.common.PlaybackParameters
 import org.schabi.newpipe.MainActivity
 import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
@@ -31,8 +35,23 @@ class MainPlayerGestureListener(
 ) : BasePlayerGestureListener(playerUi), OnTouchListener {
     private var isMoving = false
 
+    // Hold gesture properties for 2x speed
+    private var isHoldingForSpeed = false
+    private var originalSpeed = 1.0f
+    private val holdGestureHandler = Handler(Looper.getMainLooper())
+    private var holdGestureRunnable: Runnable? = null
+    private val HOLD_GESTURE_DELAY = 500L // 500ms delay before activating
+
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
+        
+        // Handle touch up events for hold gesture
+        when (event.action) {
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                cancelHoldGesture()
+            }
+        }
+        
         if (event.action == MotionEvent.ACTION_UP && isMoving) {
             isMoving = false
             onScrollEnd(event)
@@ -50,9 +69,30 @@ class MainPlayerGestureListener(
         }
     }
 
+    override fun onDown(e: MotionEvent): Boolean {
+        if (DEBUG)
+            Log.d(TAG, "onDown called with e = [$e]")
+
+        // Start hold gesture detection for 2x speed
+        startHoldGestureDetection()
+
+        if (isDoubleTapping && isDoubleTapEnabled) {
+            doubleTapControls?.onDoubleTapProgressDown(getDisplayPortion(e))
+            return true
+        }
+
+        if (onDownNotDoubleTapping(e)) {
+            return super.onDown(e)
+        }
+        return true
+    }
+
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
         if (DEBUG)
             Log.d(TAG, "onSingleTapConfirmed() called with: e = [$e]")
+
+        // Cancel hold gesture on tap
+        cancelHoldGesture()
 
         if (isDoubleTapping)
             return true
@@ -169,6 +209,9 @@ class MainPlayerGestureListener(
             return false
         }
 
+        // Cancel hold gesture when scrolling (preserves existing gestures)
+        cancelHoldGesture()
+
         // Calculate heights of status and navigation bars
         val statusBarHeight = getAndroidDimenPx(player.context, "status_bar_height")
         val navigationBarHeight = getAndroidDimenPx(player.context, "navigation_bar_height")
@@ -222,6 +265,90 @@ class MainPlayerGestureListener(
         return when {
             e.x < binding.root.width / 2.0 -> DisplayPortion.LEFT_HALF
             else -> DisplayPortion.RIGHT_HALF
+        }
+    }
+
+    // NEW METHODS FOR HOLD GESTURE 2X SPEED FEATURE
+
+    private fun startHoldGestureDetection() {
+        holdGestureRunnable = Runnable {
+            activateHoldGesture()
+        }
+        holdGestureHandler.postDelayed(holdGestureRunnable!!, HOLD_GESTURE_DELAY)
+    }
+
+    private fun activateHoldGesture() {
+        if (!isHoldingForSpeed) {
+            isHoldingForSpeed = true
+            
+            // Store current speed
+            originalSpeed = getCurrentPlaybackSpeed()
+            
+            // Set speed to 2x using Media3 ExoPlayer
+            setPlaybackSpeed(2.0f)
+            
+            // Show 2x speed indicator
+            showSpeedToast("2x Speed - Hold to Continue")
+            
+            if (DEBUG) {
+                Log.d(TAG, "Hold gesture activated: 2x speed")
+            }
+        }
+    }
+
+    private fun deactivateHoldGesture() {
+        if (isHoldingForSpeed) {
+            isHoldingForSpeed = false
+            
+            // Restore original speed
+            setPlaybackSpeed(originalSpeed)
+            
+            if (DEBUG) {
+                Log.d(TAG, "Hold gesture deactivated: restored ${originalSpeed}x speed")
+            }
+        }
+    }
+
+    private fun cancelHoldGesture() {
+        holdGestureRunnable?.let {
+            holdGestureHandler.removeCallbacks(it)
+            holdGestureRunnable = null
+        }
+        deactivateHoldGesture()
+    }
+
+    private fun getCurrentPlaybackSpeed(): Float {
+        return try {
+            player.exoPlayer?.playbackParameters?.speed ?: 1.0f
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error getting playback speed", e)
+            }
+            1.0f
+        }
+    }
+
+    private fun setPlaybackSpeed(speed: Float) {
+        try {
+            player.exoPlayer?.let { exoPlayer ->
+                val currentParams = exoPlayer.playbackParameters
+                val newParams = PlaybackParameters(speed, currentParams.pitch)
+                exoPlayer.setPlaybackParameters(newParams)
+            }
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error setting playback speed", e)
+            }
+        }
+    }
+
+    private fun showSpeedToast(message: String) {
+        try {
+            Toast.makeText(player.context, message, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error showing speed toast", e)
+            }
         }
     }
 
