@@ -3,11 +3,13 @@ package org.schabi.newpipe.player.gesture
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
+import android.widget.FrameLayout
 import android.widget.ProgressBar
-import android.widget.Toast
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
@@ -40,7 +42,8 @@ class MainPlayerGestureListener(
     private var originalSpeed = 1.0f
     private val holdGestureHandler = Handler(Looper.getMainLooper())
     private var holdGestureRunnable: Runnable? = null
-    private val HOLD_GESTURE_DELAY = 500L // 500ms delay before activating
+    private val HOLD_GESTURE_DELAY = 350L // More responsive
+    private var speedOverlay: TextView? = null
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
@@ -72,8 +75,6 @@ class MainPlayerGestureListener(
         }
         // Start hold gesture detection for 2x speed
         startHoldGestureDetection()
-
-        // Do NOT access isDoubleTapEnabled or doubleTapControls (they are private in super)
         return super.onDown(e)
     }
 
@@ -212,7 +213,67 @@ class MainPlayerGestureListener(
         }
     }
 
-    // NEW METHODS FOR HOLD GESTURE 2X SPEED FEATURE
+    // --- Overlay Helpers ---
+    private fun ensureSpeedOverlay(): TextView {
+        speedOverlay?.let { return it }
+        val context = player.context
+        val overlay = TextView(context).apply {
+            text = "2×"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            setPadding(32, 16, 32, 16)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 32f
+                setColor(0x66000000) // semi-transparent black
+            }
+            alpha = 0.0f
+            isClickable = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+            gravity = Gravity.CENTER
+            // Avoid intercepting accessibility focus
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = (context.resources.displayMetrics.density * 16).toInt() // 16dp
+        }
+        playerUi.binding.playerOverlays.addView(overlay, params)
+        speedOverlay = overlay
+        return overlay
+    }
+
+    private fun showSpeedOverlay() {
+        val overlay = ensureSpeedOverlay()
+        overlay.bringToFront()
+        overlay.animate().alpha(1.0f).setDuration(120).start()
+    }
+
+    private fun hideSpeedOverlay() {
+        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction {
+            // keep attached for reuse
+        }?.start()
+    }
+
+    private fun haptic() {
+        try {
+            val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            if (vib != null) {
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(25)
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    // --- Hold Logic ---
     private fun startHoldGestureDetection() {
         holdGestureRunnable = Runnable {
             activateHoldGesture()
@@ -225,7 +286,8 @@ class MainPlayerGestureListener(
             isHoldingForSpeed = true
             originalSpeed = getCurrentPlaybackSpeed()
             setPlaybackSpeed(2.0f)
-            showSpeedToast("2x Speed - Hold to Continue")
+            showSpeedOverlay()
+            haptic()
             if (DEBUG) {
                 Log.d(TAG, "Hold gesture activated: 2x speed")
             }
@@ -236,6 +298,7 @@ class MainPlayerGestureListener(
         if (isHoldingForSpeed) {
             isHoldingForSpeed = false
             setPlaybackSpeed(originalSpeed)
+            hideSpeedOverlay()
             if (DEBUG) {
                 Log.d(TAG, "Hold gesture deactivated: restored ${originalSpeed}x speed")
             }
@@ -271,16 +334,6 @@ class MainPlayerGestureListener(
         } catch (e: Exception) {
             if (DEBUG) {
                 Log.e(TAG, "Error setting playback speed", e)
-            }
-        }
-    }
-
-    private fun showSpeedToast(message: String) {
-        try {
-            Toast.makeText(player.context, message, Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error showing speed toast", e)
             }
         }
     }
