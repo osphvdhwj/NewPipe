@@ -19,19 +19,13 @@ import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
 import org.schabi.newpipe.player.Player
+import org.schabi.newpipe.player.gesture.DisplayPortion.MIDDLE
 import org.schabi.newpipe.player.helper.AudioReactor
 import org.schabi.newpipe.player.helper.PlayerHelper
 import org.schabi.newpipe.player.ui.MainPlayerUi
 import org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx
 import kotlin.math.abs
 
-/**
- * GestureListener for the player
- *
- * While [BasePlayerGestureListener] contains the logic behind the single gestures
- * this class focuses on the visual aspect like hiding and showing the controls or changing
- * volume/brightness during scrolling for specific events.
- */
 class MainPlayerGestureListener(
     private val playerUi: MainPlayerUi
 ) : BasePlayerGestureListener(playerUi), OnTouchListener {
@@ -42,14 +36,31 @@ class MainPlayerGestureListener(
     private var originalSpeed = 1.0f
     private val holdGestureHandler = Handler(Looper.getMainLooper())
     private var holdGestureRunnable: Runnable? = null
-    private val HOLD_GESTURE_DELAY = 350L // More responsive
+    private val HOLD_GESTURE_DELAY = 350L // responsive, > tap confirm window
     private var speedOverlay: TextView? = null
+
+    // Tap/hold coordination
+    private var tapJustConfirmed = false
+    private var downX = 0f
+    private var downY = 0f
+    private val touchSlopPx by lazy {
+        (player.context.resources.displayMetrics.density * 6).toInt()
+    }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
         when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx) {
+                    cancelHoldGesture()
+                }
+            }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                cancelHoldGesture()
+                cancelHoldGesture() // ensure 2x cancels when user unholds
             }
         }
         if (event.action == MotionEvent.ACTION_UP && isMoving) {
@@ -73,17 +84,19 @@ class MainPlayerGestureListener(
         if (DEBUG) {
             Log.d(TAG, "onDown called with e = [$e]")
         }
-        // Start hold gesture detection for 2x speed
-        startHoldGestureDetection()
+        // Only allow hold-to-2x when starting in the middle portion to avoid conflicts
+        if (getDisplayPortion(e) == MIDDLE) {
+            startHoldGestureDetection()
+        }
         return super.onDown(e)
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-        if (DEBUG) {
-            Log.d(TAG, "onSingleTapConfirmed() called with: e = [$e]")
-        }
-        // Cancel hold gesture on tap
+        // Hard-cancel any pending hold first
         cancelHoldGesture()
+        tapJustConfirmed = true
+        // Reset the flag shortly after to not block future holds
+        holdGestureHandler.postDelayed({ tapJustConfirmed = false }, 200)
         return super.onSingleTapConfirmed(e)
     }
 
@@ -231,7 +244,6 @@ class MainPlayerGestureListener(
             isFocusable = false
             isFocusableInTouchMode = false
             gravity = Gravity.CENTER
-            // Avoid intercepting accessibility focus
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         val params = FrameLayout.LayoutParams(
@@ -253,9 +265,7 @@ class MainPlayerGestureListener(
     }
 
     private fun hideSpeedOverlay() {
-        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction {
-            // keep attached for reuse
-        }?.start()
+        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction { }?.start()
     }
 
     private fun haptic() {
@@ -265,32 +275,27 @@ class MainPlayerGestureListener(
                 if (android.os.Build.VERSION.SDK_INT >= 26) {
                     vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                 } else {
-                    @Suppress("DEPRECATION")
-                    vib.vibrate(25)
+                    @Suppress("DEPRECATION") vib.vibrate(25)
                 }
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) { }
     }
 
     // --- Hold Logic ---
     private fun startHoldGestureDetection() {
-        holdGestureRunnable = Runnable {
-            activateHoldGesture()
-        }
+        holdGestureRunnable = Runnable { activateHoldGesture() }
         holdGestureHandler.postDelayed(holdGestureRunnable!!, HOLD_GESTURE_DELAY)
     }
 
     private fun activateHoldGesture() {
+        if (tapJustConfirmed) return
         if (!isHoldingForSpeed) {
             isHoldingForSpeed = true
             originalSpeed = getCurrentPlaybackSpeed()
             setPlaybackSpeed(2.0f)
             showSpeedOverlay()
             haptic()
-            if (DEBUG) {
-                Log.d(TAG, "Hold gesture activated: 2x speed")
-            }
+            if (DEBUG) Log.d(TAG, "Hold gesture activated: 2x speed")
         }
     }
 
@@ -299,17 +304,13 @@ class MainPlayerGestureListener(
             isHoldingForSpeed = false
             setPlaybackSpeed(originalSpeed)
             hideSpeedOverlay()
-            if (DEBUG) {
-                Log.d(TAG, "Hold gesture deactivated: restored ${originalSpeed}x speed")
-            }
+            if (DEBUG) Log.d(TAG, "Hold gesture deactivated: restored ${originalSpeed}x speed")
         }
     }
 
     private fun cancelHoldGesture() {
-        holdGestureRunnable?.let {
-            holdGestureHandler.removeCallbacks(it)
-            holdGestureRunnable = null
-        }
+        holdGestureRunnable?.let { holdGestureHandler.removeCallbacks(it) }
+        holdGestureRunnable = null
         deactivateHoldGesture()
     }
 
@@ -317,9 +318,7 @@ class MainPlayerGestureListener(
         return try {
             player.exoPlayer?.playbackParameters?.speed ?: 1.0f
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error getting playback speed", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error getting playback speed", e)
             1.0f
         }
     }
@@ -332,9 +331,7 @@ class MainPlayerGestureListener(
                 exoPlayer.setPlaybackParameters(newParams)
             }
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error setting playback speed", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error setting playback speed", e)
         }
     }
 
