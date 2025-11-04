@@ -10,7 +10,6 @@ import android.view.View.OnTouchListener
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
 import com.google.android.exoplayer2.PlaybackParameters
@@ -132,7 +131,8 @@ class MainPlayerGestureListener(
     }
 
     private fun onScrollBrightness(distanceY: Float) {
-        val parent: AppCompatActivity = playerUi.parentActivity.orElse(null) ?: return
+        // Replace Optional parentActivity access with safe cast from context
+        val parent = player.context as? androidx.appcompat.app.AppCompatActivity ?: return
         val window = parent.window
         val layoutParams = window.attributes
         val bar: ProgressBar = binding.brightnessProgressBar
@@ -226,7 +226,6 @@ class MainPlayerGestureListener(
         }
     }
 
-    // --- Overlay Helpers ---
     private fun ensureSpeedOverlay(): TextView {
         speedOverlay?.let { return it }
         val context = player.context
@@ -258,15 +257,8 @@ class MainPlayerGestureListener(
         return overlay
     }
 
-    private fun showSpeedOverlay() {
-        val overlay = ensureSpeedOverlay()
-        overlay.bringToFront()
-        overlay.animate().alpha(1.0f).setDuration(120).start()
-    }
-
-    private fun hideSpeedOverlay() {
-        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction { }?.start()
-    }
+    private fun showSpeedOverlay() { val overlay = ensureSpeedOverlay(); overlay.bringToFront(); overlay.animate().alpha(1.0f).setDuration(120).start() }
+    private fun hideSpeedOverlay() { speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction { }?.start() }
 
     private fun haptic() {
         try {
@@ -281,11 +273,7 @@ class MainPlayerGestureListener(
         } catch (_: Exception) { }
     }
 
-    // --- Hold Logic ---
-    private fun startHoldGestureDetection() {
-        holdGestureRunnable = Runnable { activateHoldGesture() }
-        holdGestureHandler.postDelayed(holdGestureRunnable!!, HOLD_GESTURE_DELAY)
-    }
+    private fun startHoldGestureDetection() { holdGestureRunnable = Runnable { activateHoldGesture() }; holdGestureHandler.postDelayed(holdGestureRunnable!!, HOLD_GESTURE_DELAY) }
 
     private fun activateHoldGesture() {
         if (tapJustConfirmed) return
@@ -308,32 +296,11 @@ class MainPlayerGestureListener(
         }
     }
 
-    private fun cancelHoldGesture() {
-        holdGestureRunnable?.let { holdGestureHandler.removeCallbacks(it) }
-        holdGestureRunnable = null
-        deactivateHoldGesture()
-    }
+    private fun cancelHoldGesture() { holdGestureRunnable?.let { holdGestureHandler.removeCallbacks(it) }; holdGestureRunnable = null; deactivateHoldGesture() }
 
-    private fun getCurrentPlaybackSpeed(): Float {
-        return try {
-            player.exoPlayer?.playbackParameters?.speed ?: 1.0f
-        } catch (e: Exception) {
-            if (DEBUG) Log.e(TAG, "Error getting playback speed", e)
-            1.0f
-        }
-    }
+    private fun getCurrentPlaybackSpeed(): Float { return try { player.exoPlayer?.playbackParameters?.speed ?: 1.0f } catch (e: Exception) { if (DEBUG) Log.e(TAG, "Error getting playback speed", e); 1.0f } }
 
-    private fun setPlaybackSpeed(speed: Float) {
-        try {
-            player.exoPlayer?.let { exoPlayer ->
-                val currentParams = exoPlayer.playbackParameters
-                val newParams = PlaybackParameters(speed, currentParams.pitch)
-                exoPlayer.setPlaybackParameters(newParams)
-            }
-        } catch (e: Exception) {
-            if (DEBUG) Log.e(TAG, "Error setting playback speed", e)
-        }
-    }
+    private fun setPlaybackSpeed(speed: Float) { try { player.exoPlayer?.let { exoPlayer -> val currentParams = exoPlayer.playbackParameters; val newParams = PlaybackParameters(speed, currentParams.pitch); exoPlayer.setPlaybackParameters(newParams) } } catch (e: Exception) { if (DEBUG) Log.e(TAG, "Error setting playback speed", e) } }
 
     companion object {
         private val TAG = MainPlayerGestureListener::class.java.simpleName
