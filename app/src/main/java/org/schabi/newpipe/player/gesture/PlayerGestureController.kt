@@ -50,9 +50,10 @@ class PlayerGestureController(
 
             override fun onLongPress(e: MotionEvent) {
                 // Start 2x speed - only if not already active and not in PiP/popup mode
-                if (!isHoldingFor2x && 
+                if (!isHoldingFor2x &&
                     getDisplayPortion(e) == DisplayPortion.MIDDLE &&
-                    !isPopupOrPipMode()) {
+                    !isPopupOrPipMode()
+                ) {
                     startSpeedBoost()
                 }
             }
@@ -179,7 +180,7 @@ class PlayerGestureController(
 
     /**
      * Check if the player is in popup or PiP mode
-     * This prevents hold-to-2x activation in these modes where it could interfere 
+     * This prevents hold-to-2x activation in these modes where it could interfere
      * with drag/resize/close gestures
      */
     private fun isPopupOrPipMode(): Boolean {
@@ -187,7 +188,7 @@ class PlayerGestureController(
             // Check if we're in popup mode by looking for popup-specific views
             val activity = context as? android.app.Activity
             activity?.isInPictureInPictureMode == true ||
-            context.javaClass.simpleName.contains("Popup")
+                context.javaClass.simpleName.contains("Popup")
         } catch (e: Exception) {
             false
         }
