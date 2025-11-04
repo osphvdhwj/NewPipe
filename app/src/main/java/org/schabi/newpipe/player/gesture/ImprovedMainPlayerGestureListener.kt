@@ -28,20 +28,32 @@ class ImprovedMainPlayerGestureListener(
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> { downX = event.x; downY = event.y }
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+            }
             MotionEvent.ACTION_MOVE -> {
                 if (abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx) {
                     // movement cancels any long-press 2x internally
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (isMoving) { isMoving = false; onScrollEnd(event) }
+                if (isMoving) {
+                    isMoving = false
+                    onScrollEnd(event)
+                }
             }
         }
         if (gestureController.handleTouchEvent(event)) return true
         return when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> { v.parent?.requestDisallowInterceptTouchEvent(playerUi.isFullscreen); true }
-            MotionEvent.ACTION_UP -> { v.parent?.requestDisallowInterceptTouchEvent(false); false }
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                v.parent?.requestDisallowInterceptTouchEvent(playerUi.isFullscreen)
+                true
+            }
+            MotionEvent.ACTION_UP -> {
+                v.parent?.requestDisallowInterceptTouchEvent(false)
+                false
+            }
             else -> true
         }
     }
@@ -57,23 +69,31 @@ class ImprovedMainPlayerGestureListener(
         distanceY: Float
     ): Boolean {
         if (initialEvent == null || !playerUi.isFullscreen) return false
-        val statusBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(player.context, "status_bar_height")
-        val navigationBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(player.context, "navigation_bar_height")
+        val statusBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(
+            player.context, "status_bar_height"
+        )
+        val navigationBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(
+            player.context, "navigation_bar_height"
+        )
         val isTouchingStatusBar = initialEvent.y < statusBarHeight
         val isTouchingNavigationBar = initialEvent.y > (binding.root.height - navigationBarHeight)
         if (isTouchingStatusBar || isTouchingNavigationBar) return false
         val insideThreshold = kotlin.math.abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (!isMoving && (insideThreshold || kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY))) return false
+        if (!isMoving && (insideThreshold || kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY))) {
+            return false
+        }
         isMoving = true
         if (getDisplayHalfPortion(initialEvent) == DisplayPortion.RIGHT_HALF) {
             when (PlayerHelper.getActionForRightGestureSide(player.context)) {
                 player.context.getString(R.string.volume_control_key) -> onScrollVolume(distanceY)
-                player.context.getString(R.string.brightness_control_key) -> onScrollBrightness(distanceY)
+                player.context.getString(R.string.brightness_control_key) ->
+                    onScrollBrightness(distanceY)
             }
         } else {
             when (PlayerHelper.getActionForLeftGestureSide(player.context)) {
                 player.context.getString(R.string.volume_control_key) -> onScrollVolume(distanceY)
-                player.context.getString(R.string.brightness_control_key) -> onScrollBrightness(distanceY)
+                player.context.getString(R.string.brightness_control_key) ->
+                    onScrollBrightness(distanceY)
             }
         }
         return true
@@ -101,7 +121,9 @@ class ImprovedMainPlayerGestureListener(
                 }
             )
         )
-        if (!binding.volumeRelativeLayout.isShown) binding.volumeRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
+        if (!binding.volumeRelativeLayout.isShown) {
+            binding.volumeRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
+        }
         binding.brightnessRelativeLayout.visibility = View.GONE
     }
 
@@ -127,14 +149,20 @@ class ImprovedMainPlayerGestureListener(
                 }
             )
         )
-        if (!binding.brightnessRelativeLayout.isShown) binding.brightnessRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
+        if (!binding.brightnessRelativeLayout.isShown) {
+            binding.brightnessRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
+        }
         binding.volumeRelativeLayout.visibility = View.GONE
     }
 
     override fun onScrollEnd(event: MotionEvent) {
         super.onScrollEnd(event)
-        if (binding.volumeRelativeLayout.isShown) binding.volumeRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
-        if (binding.brightnessRelativeLayout.isShown) binding.brightnessRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
+        if (binding.volumeRelativeLayout.isShown) {
+            binding.volumeRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
+        }
+        if (binding.brightnessRelativeLayout.isShown) {
+            binding.brightnessRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
+        }
     }
 
     override fun getDisplayPortion(e: MotionEvent): DisplayPortion = when {
@@ -148,9 +176,14 @@ class ImprovedMainPlayerGestureListener(
         else -> DisplayPortion.RIGHT_HALF
     }
 
-    override fun showControls() { playerUi.showControls(0); ensureControlButtonsVisible() }
+    override fun showControls() {
+        playerUi.showControls(0)
+        ensureControlButtonsVisible()
+    }
 
-    override fun hideControls() { playerUi.hideControls(0, 0) }
+    override fun hideControls() {
+        playerUi.hideControls(0, 0)
+    }
 
     private fun ensureControlButtonsVisible() {
         val binding = playerUi.binding
@@ -167,10 +200,15 @@ class ImprovedMainPlayerGestureListener(
     }
 
     override fun showSpeedIndicator(speed: Float) {
-        val overlay = ensureSpeedOverlay(); overlay.text = "${speed.toInt()}×"; overlay.bringToFront(); overlay.animate().alpha(1.0f).setDuration(120).start()
+        val overlay = ensureSpeedOverlay()
+        overlay.text = "${speed.toInt()}×"
+        overlay.bringToFront()
+        overlay.animate().alpha(1.0f).setDuration(120).start()
     }
 
-    override fun hideSpeedIndicator() { speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.start() }
+    override fun hideSpeedIndicator() {
+        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.start()
+    }
 
     override fun setPlaybackSpeed(speed: Float) {
         player.exoPlayer?.let { exoPlayer ->
@@ -181,28 +219,59 @@ class ImprovedMainPlayerGestureListener(
     }
 
     override fun onHapticFeedback() {
-        val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-        vib?.let { if (android.os.Build.VERSION.SDK_INT >= 26) it.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") it.vibrate(25) }
+        val vib = player.context.getSystemService(
+            android.content.Context.VIBRATOR_SERVICE
+        ) as? android.os.Vibrator
+        vib?.let {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                it.vibrate(
+                    android.os.VibrationEffect.createOneShot(
+                        25, android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                    )
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                it.vibrate(25)
+            }
+        }
     }
 
     private fun ensureSpeedOverlay(): android.widget.TextView {
         speedOverlay?.let { return it }
         val context = player.context
         val overlay = android.widget.TextView(context).apply {
-            text = "2×"; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f; setPadding(32, 16, 32, 16)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 32f; setColor(0x66000000) }
-            alpha = 0.0f; isClickable = false; isFocusable = false; isFocusableInTouchMode = false; gravity = android.view.Gravity.CENTER
+            text = "2×"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            setPadding(32, 16, 32, 16)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 32f
+                setColor(0x66000000)
+            }
+            alpha = 0.0f
+            isClickable = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+            gravity = android.view.Gravity.CENTER
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         val params = android.widget.FrameLayout.LayoutParams(
             android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
             android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL; topMargin = (context.resources.displayMetrics.density * 16).toInt() }
+        ).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+            topMargin = (context.resources.displayMetrics.density * 16).toInt()
+        }
         playerUi.binding.playerOverlays.addView(overlay, params)
-        speedOverlay = overlay; return overlay
+        speedOverlay = overlay
+        return overlay
     }
 
-    fun cleanup() { gestureController.cleanup() }
+    fun cleanup() {
+        gestureController.cleanup()
+    }
 
-    companion object { private const val MOVEMENT_THRESHOLD = 40 }
+    companion object {
+        private const val MOVEMENT_THRESHOLD = 40
+    }
 }
