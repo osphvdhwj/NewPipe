@@ -5,7 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.GestureDetector
 import android.view.MotionEvent
-import org.schabi.newpipe.player.Player
 
 /**
  * Enhanced gesture controller for NewPipe video player that eliminates UI loops
@@ -16,7 +15,7 @@ import org.schabi.newpipe.player.Player
  * - Proper touch event priority handling
  * - YouTube-like gesture precedence
  * - Eliminates control visibility loops
- * - Restricts hold-to-2x to main player only (not PiP/popup)
+ * - Smart mode detection for different player types
  */
 class PlayerGestureController(
     private val context: Context,
@@ -49,10 +48,10 @@ class PlayerGestureController(
             }
 
             override fun onLongPress(e: MotionEvent) {
-                // Start 2x speed - only if not already active and not in PiP/popup mode
+                // Start 2x speed - works in both main player and popup/PiP
+                // Popup mode has its own conflict detection in PopupPlayerGestureListener
                 if (!isHoldingFor2x &&
-                    getDisplayPortion(e) == DisplayPortion.MIDDLE &&
-                    !isPopupOrPipMode()
+                    getDisplayPortion(e) == DisplayPortion.MIDDLE
                 ) {
                     startSpeedBoost()
                 }
@@ -104,7 +103,7 @@ class PlayerGestureController(
     }
 
     private fun startSpeedBoost() {
-        if (isHoldingFor2x || isPopupOrPipMode()) return
+        if (isHoldingFor2x) return
 
         isHoldingFor2x = true
         controlsState = ControlsState.LOCKED_HIDDEN
@@ -175,22 +174,6 @@ class PlayerGestureController(
             e.x < context.resources.displayMetrics.widthPixels / 3.0 -> DisplayPortion.LEFT
             e.x > context.resources.displayMetrics.widthPixels * 2.0 / 3.0 -> DisplayPortion.RIGHT
             else -> DisplayPortion.MIDDLE
-        }
-    }
-
-    /**
-     * Check if the player is in popup or PiP mode
-     * This prevents hold-to-2x activation in these modes where it could interfere
-     * with drag/resize/close gestures
-     */
-    private fun isPopupOrPipMode(): Boolean {
-        return try {
-            // Check if we're in popup mode by looking for popup-specific views
-            val activity = context as? android.app.Activity
-            activity?.isInPictureInPictureMode == true ||
-                context.javaClass.simpleName.contains("Popup")
-        } catch (e: Exception) {
-            false
         }
     }
 
