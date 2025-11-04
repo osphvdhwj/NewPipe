@@ -34,7 +34,7 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
         init();
     }
 
-    public DraggableFitTextView(@NonNull final Context context, 
+    public DraggableFitTextView(@NonNull final Context context,
                                 @Nullable final AttributeSet attrs) {
         super(context, attrs);
         init();
@@ -93,9 +93,9 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
                     final float newY = event.getRawY() + dY;
 
                     // Apply boundaries to prevent dragging offscreen
-                    final float constrainedX = Math.max(minX, 
+                    final float constrainedX = Math.max(minX,
                             Math.min(maxX - getWidth(), newX));
-                    final float constrainedY = Math.max(minY, 
+                    final float constrainedY = Math.max(minY,
                             Math.min(maxY - getHeight(), newY));
 
                     view.setX(constrainedX);
