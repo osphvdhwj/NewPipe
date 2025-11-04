@@ -1,22 +1,30 @@
 package org.schabi.newpipe.player.gesture
 
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
+import android.view.View.OnTouchListener
+import android.widget.FrameLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.core.view.isVisible
+import com.google.android.exoplayer2.PlaybackParameters
 import org.schabi.newpipe.MainActivity
+import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
-import org.schabi.newpipe.player.ui.PopupPlayerUi
+import org.schabi.newpipe.player.Player
+import org.schabi.newpipe.player.gesture.DisplayPortion.MIDDLE
+import org.schabi.newpipe.player.helper.AudioReactor
+import org.schabi.newpipe.player.helper.PlayerHelper
+import org.schabi.newpipe.player.ui.MainPlayerUi
+import org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx
 import kotlin.math.abs
-import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
 
 class PopupPlayerGestureListener(
-    private val playerUi: PopupPlayerUi,
-) : BasePlayerGestureListener(playerUi) {
+    private val playerUi: MainPlayerUi,
+) : BasePlayerGestureListener(playerUi), OnTouchListener {
 
     private var isMoving = false
 
@@ -43,22 +51,20 @@ class PopupPlayerGestureListener(
         if (event.pointerCount == 1 && !isMoving && !isResizing) {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    // Check if touch is in the safe center area (avoid edges for drag/close)
-                    if (isCenterAreaTouch(event)) {
+                    if (isCenterAreaTouch(event)) { // safe center area
                         holdStartTime = System.currentTimeMillis()
                     }
                 }
                 MotionEvent.ACTION_UP -> {
                     if (isHoldingFor2x) {
                         stopSpeedBoost()
-                        return true // Consume event to prevent other actions
+                        return true
                     }
                 }
             }
-
-            // Check for long press in center area
             if (event.action == MotionEvent.ACTION_MOVE && !isHoldingFor2x &&
-                holdStartTime > 0 && isCenterAreaTouch(event)) {
+                holdStartTime > 0 && isCenterAreaTouch(event)
+            ) {
                 val holdDuration = System.currentTimeMillis() - holdStartTime
                 if (holdDuration >= holdToSpeedDelay) {
                     startSpeedBoost()
@@ -72,25 +78,21 @@ class PopupPlayerGestureListener(
             }
             onPopupResizingStart()
 
-            // record coordinates of fingers
             initFirstPointerX = event.getX(0)
             initFirstPointerY = event.getY(0)
             initSecPointerX = event.getX(1)
             initSecPointerY = event.getY(1)
-            // record distance between fingers
-            initPointerDistance = hypot(
-                initFirstPointerX - initSecPointerX.toDouble(),
-                initFirstPointerY - initSecPointerY.toDouble()
+            initPointerDistance = kotlin.math.hypot(
+                (initFirstPointerX - initSecPointerX).toDouble(),
+                (initFirstPointerY - initSecPointerY).toDouble()
             )
-
             isResizing = true
         }
         if (event.action == MotionEvent.ACTION_MOVE && !isMoving && isResizing) {
             if (DEBUG) {
                 Log.d(
                     TAG,
-                    "onTouch() ACTION_MOVE > v = [$v], e1.getRaw =" +
-                        "[${event.rawX}, ${event.rawY}]"
+                    "onTouch() ACTION_MOVE > v = [$v], e1.getRaw =[${event.rawX}, ${event.rawY}]"
                 )
             }
             return handleMultiDrag(event)
@@ -99,8 +101,7 @@ class PopupPlayerGestureListener(
             if (DEBUG) {
                 Log.d(
                     TAG,
-                    "onTouch() ACTION_UP > v = [$v], e1.getRaw =" +
-                        " [${event.rawX}, ${event.rawY}]"
+                    "onTouch() ACTION_UP > v = [$v], e1.getRaw = [${event.rawX}, ${event.rawY}]"
                 )
             }
             if (isMoving) {
@@ -109,21 +110,17 @@ class PopupPlayerGestureListener(
             }
             if (isResizing) {
                 isResizing = false
-
                 initPointerDistance = (-1).toDouble()
                 initFirstPointerX = (-1).toFloat()
                 initFirstPointerY = (-1).toFloat()
                 initSecPointerX = (-1).toFloat()
                 initSecPointerY = (-1).toFloat()
-
                 onPopupResizingEnd()
                 player.changeState(player.currentState)
             }
             if (!playerUi.isPopupClosing) {
                 playerUi.savePopupPositionAndSizeToPrefs()
             }
-
-            // Reset hold tracking
             holdStartTime = 0L
         }
 
@@ -131,117 +128,71 @@ class PopupPlayerGestureListener(
         return true
     }
 
-    /**
-     * Check if the touch is in the safe center area where hold-to-2x won't conflict
-     * with drag, resize, or close gestures.
-     */
     private fun isCenterAreaTouch(event: MotionEvent): Boolean {
         val width = playerUi.popupLayoutParams.width
         val height = playerUi.popupLayoutParams.height
-        
-        // Define safe zone as center 40% of the popup (20% margin on all sides)
         val safeMargin = 0.2f
         val leftBound = width * safeMargin
         val rightBound = width * (1 - safeMargin)
         val topBound = height * safeMargin
         val bottomBound = height * (1 - safeMargin)
-        
         return event.x >= leftBound && event.x <= rightBound &&
-               event.y >= topBound && event.y <= bottomBound
+            event.y >= topBound && event.y <= bottomBound
     }
 
-    /**
-     * Start 2x speed playback in popup mode
-     */
     private fun startSpeedBoost() {
         if (isHoldingFor2x) return
-        
         isHoldingFor2x = true
-        
         try {
-            // Set playback speed to 2x
             player.exoPlayer?.let { exoPlayer ->
                 val currentParams = exoPlayer.playbackParameters
                 val newParams = com.google.android.exoplayer2.PlaybackParameters(2.0f, currentParams.pitch)
                 exoPlayer.setPlaybackParameters(newParams)
             }
-            
-            // Show speed indicator overlay
             showSpeedIndicator()
-            
-            // Haptic feedback
             val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-            if (vib != null) {
+            vib?.let {
                 if (android.os.Build.VERSION.SDK_INT >= 26) {
-                    vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    it.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                 } else {
-                    @Suppress("DEPRECATION") vib.vibrate(25)
+                    @Suppress("DEPRECATION") it.vibrate(25)
                 }
             }
-            
-            if (DEBUG) {
-                Log.d(TAG, "Started 2x speed boost in popup mode")
-            }
+            if (DEBUG) Log.d(TAG, "Started 2x speed boost in popup mode")
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error starting speed boost in popup", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error starting speed boost in popup", e)
         }
     }
 
-    /**
-     * Stop 2x speed playback and return to normal speed
-     */
     private fun stopSpeedBoost() {
         if (!isHoldingFor2x) return
-        
         isHoldingFor2x = false
-        
         try {
-            // Reset playback speed to 1x
             player.exoPlayer?.let { exoPlayer ->
                 val currentParams = exoPlayer.playbackParameters
                 val newParams = com.google.android.exoplayer2.PlaybackParameters(1.0f, currentParams.pitch)
                 exoPlayer.setPlaybackParameters(newParams)
             }
-            
-            // Hide speed indicator
             hideSpeedIndicator()
-            
-            if (DEBUG) {
-                Log.d(TAG, "Stopped 2x speed boost in popup mode")
-            }
+            if (DEBUG) Log.d(TAG, "Stopped 2x speed boost in popup mode")
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error stopping speed boost in popup", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error stopping speed boost in popup", e)
         }
     }
 
-    /**
-     * Show speed indicator overlay in popup
-     */
     private fun showSpeedIndicator() {
         try {
-            // Use the existing fast seek overlay or create a simple indicator
             binding.fastSeekOverlay.animate(true, 150)
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error showing speed indicator", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error showing speed indicator", e)
         }
     }
 
-    /**
-     * Hide speed indicator overlay
-     */
     private fun hideSpeedIndicator() {
         try {
             binding.fastSeekOverlay.animate(false, 150)
         } catch (e: Exception) {
-            if (DEBUG) {
-                Log.e(TAG, "Error hiding speed indicator", e)
-            }
+            if (DEBUG) Log.e(TAG, "Error hiding speed indicator", e)
         }
     }
 
@@ -259,71 +210,49 @@ class PopupPlayerGestureListener(
         if (initPointerDistance == -1.0 || event.pointerCount != 2) {
             return false
         }
-
-        // get the movements of the fingers
-        val firstPointerMove = hypot(
-            event.getX(0) - initFirstPointerX.toDouble(),
-            event.getY(0) - initFirstPointerY.toDouble()
+        val firstPointerMove = kotlin.math.hypot(
+            (event.getX(0) - initFirstPointerX).toDouble(),
+            (event.getY(0) - initFirstPointerY).toDouble()
         )
-        val secPointerMove = hypot(
-            event.getX(1) - initSecPointerX.toDouble(),
-            event.getY(1) - initSecPointerY.toDouble()
+        val secPointerMove = kotlin.math.hypot(
+            (event.getX(1) - initSecPointerX).toDouble(),
+            (event.getY(1) - initSecPointerY).toDouble()
         )
-
-        // minimum threshold beyond which pinch gesture will work
-        val minimumMove = ViewConfiguration.get(player.context).scaledTouchSlop
-        if (max(firstPointerMove, secPointerMove) <= minimumMove) {
+        val minimumMove = android.view.ViewConfiguration.get(player.context).scaledTouchSlop
+        if (kotlin.math.max(firstPointerMove, secPointerMove) <= minimumMove) {
             return false
         }
-
-        // calculate current distance between the pointers
-        val currentPointerDistance = hypot(
-            event.getX(0) - event.getX(1).toDouble(),
-            event.getY(0) - event.getY(1).toDouble()
+        val currentPointerDistance = kotlin.math.hypot(
+            (event.getX(0) - event.getX(1)).toDouble(),
+            (event.getY(0) - event.getY(1)).toDouble()
         )
-
         val popupWidth = playerUi.popupLayoutParams.width.toDouble()
-        // change co-ordinates of popup so the center stays at the same position
         val newWidth = popupWidth * currentPointerDistance / initPointerDistance
         initPointerDistance = currentPointerDistance
         playerUi.popupLayoutParams.x += ((popupWidth - newWidth) / 2.0).toInt()
-
         playerUi.checkPopupPositionBounds()
         playerUi.updateScreenSize()
-        playerUi.changePopupSize(min(playerUi.screenWidth.toDouble(), newWidth).toInt())
+        playerUi.changePopupSize(kotlin.math.min(playerUi.screenWidth.toDouble(), newWidth).toInt())
         return true
     }
 
     private fun onPopupResizingStart() {
-        if (DEBUG) {
-            Log.d(TAG, "onPopupResizingStart called")
-        }
+        if (DEBUG) Log.d(TAG, "onPopupResizingStart called")
         binding.loadingPanel.visibility = View.GONE
         playerUi.hideControls(0, 0)
         binding.fastSeekOverlay.animate(false, 0)
         binding.currentDisplaySeek.animate(false, 0, AnimationType.ALPHA, 0)
-        
-        // Cancel any ongoing speed boost when resizing starts
-        if (isHoldingFor2x) {
-            stopSpeedBoost()
-        }
+        if (isHoldingFor2x) stopSpeedBoost()
     }
 
     private fun onPopupResizingEnd() {
-        if (DEBUG) {
-            Log.d(TAG, "onPopupResizingEnd called")
-        }
+        if (DEBUG) Log.d(TAG, "onPopupResizingEnd called")
     }
 
     override fun onLongPress(e: MotionEvent) {
-        // Check if this is in the center area and not conflicting with resize
-        if (!isResizing && !isMoving && isCenterAreaTouch(e)) {
-            // Start hold-to-2x instead of maximize popup
-            if (!isHoldingFor2x) {
-                startSpeedBoost()
-            }
+        if (!isResizing && !isMoving && getDisplayPortion(e) == MIDDLE && isCenterAreaTouch(e)) {
+            if (!isHoldingFor2x) startSpeedBoost()
         } else {
-            // Original behavior: maximize popup size
             playerUi.updateScreenSize()
             playerUi.checkPopupPositionBounds()
             playerUi.changePopupSize(playerUi.screenWidth)
@@ -337,8 +266,8 @@ class PopupPlayerGestureListener(
         velocityY: Float
     ): Boolean {
         return if (player.popupPlayerSelected()) {
-            val absVelocityX = abs(velocityX)
-            val absVelocityY = abs(velocityY)
+            val absVelocityX = kotlin.math.abs(velocityX)
+            val absVelocityY = kotlin.math.abs(velocityY)
             if (absVelocityX.coerceAtLeast(absVelocityY) > TOSS_FLING_VELOCITY) {
                 if (absVelocityX > TOSS_FLING_VELOCITY) {
                     playerUi.popupLayoutParams.x = velocityX.toInt()
@@ -357,26 +286,19 @@ class PopupPlayerGestureListener(
     }
 
     override fun onDownNotDoubleTapping(e: MotionEvent): Boolean {
-        // Fix popup position when the user touch it, it may have the wrong one
-        // because the soft input is visible (the draggable area is currently resized).
         playerUi.updateScreenSize()
         playerUi.checkPopupPositionBounds()
         playerUi.popupLayoutParams.let {
             initialPopupX = it.x
             initialPopupY = it.y
         }
-        return true // we want `super.onDown(e)` to be called
+        return true
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-        if (DEBUG)
-            Log.d(TAG, "onSingleTapConfirmed() called with: e = [$e]")
-
-        if (isDoubleTapping)
-            return true
-        if (player.exoPlayerIsNull())
-            return false
-
+        if (DEBUG) Log.d(TAG, "onSingleTapConfirmed() called with: e = [$e]")
+        if (isDoubleTapping) return true
+        if (player.exoPlayerIsNull()) return false
         onSingleTap()
         return true
     }
@@ -387,65 +309,42 @@ class PopupPlayerGestureListener(
         distanceX: Float,
         distanceY: Float
     ): Boolean {
-        if (initialEvent == null) {
-            return false
-        }
-
-        if (isResizing) {
-            return super.onScroll(initialEvent, movingEvent, distanceX, distanceY)
-        }
-
-        // Cancel hold-to-2x when scrolling starts
-        if (isHoldingFor2x) {
-            stopSpeedBoost()
-        }
-
+        if (initialEvent == null) return false
+        if (isResizing) return super.onScroll(initialEvent, movingEvent, distanceX, distanceY)
+        if (isHoldingFor2x) stopSpeedBoost()
         if (!isMoving) {
             playerUi.closeOverlayBinding.closeButton.animate(true, 200)
         }
-
         isMoving = true
-
         val diffX = (movingEvent.rawX - initialEvent.rawX)
         val posX = (initialPopupX + diffX).coerceIn(
             0f,
-            (playerUi.screenWidth - playerUi.popupLayoutParams.width).toFloat()
-                .coerceAtLeast(0f)
+            (playerUi.screenWidth - playerUi.popupLayoutParams.width).toFloat().coerceAtLeast(0f)
         )
         val diffY = (movingEvent.rawY - initialEvent.rawY)
         val posY = (initialPopupY + diffY).coerceIn(
             0f,
-            (playerUi.screenHeight - playerUi.popupLayoutParams.height).toFloat()
-                .coerceAtLeast(0f)
+            (playerUi.screenHeight - playerUi.popupLayoutParams.height).toFloat().coerceAtLeast(0f)
         )
-
         playerUi.popupLayoutParams.x = posX.toInt()
         playerUi.popupLayoutParams.y = posY.toInt()
-
-        // -- Determine if the ClosingOverlayView (red X) has to be shown or hidden --
         val showClosingOverlayView: Boolean = playerUi.isInsideClosingRadius(movingEvent)
-        // Check if an view is in expected state and if not animate it into the correct state
         if (binding.closingOverlay.isVisible != showClosingOverlayView) {
             binding.closingOverlay.animate(showClosingOverlayView, 200)
         }
-
         playerUi.windowManager.updateViewLayout(binding.root, playerUi.popupLayoutParams)
         return true
     }
 
-    override fun getDisplayPortion(e: MotionEvent): DisplayPortion {
-        return when {
-            e.x < playerUi.popupLayoutParams.width / 3.0 -> DisplayPortion.LEFT
-            e.x > playerUi.popupLayoutParams.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
-            else -> DisplayPortion.MIDDLE
-        }
+    override fun getDisplayPortion(e: MotionEvent): DisplayPortion = when {
+        e.x < playerUi.popupLayoutParams.width / 3.0 -> DisplayPortion.LEFT
+        e.x > playerUi.popupLayoutParams.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
+        else -> DisplayPortion.MIDDLE
     }
 
-    override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion {
-        return when {
-            e.x < playerUi.popupLayoutParams.width / 2.0 -> DisplayPortion.LEFT_HALF
-            else -> DisplayPortion.RIGHT_HALF
-        }
+    override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion = when {
+        e.x < playerUi.popupLayoutParams.width / 2.0 -> DisplayPortion.LEFT_HALF
+        else -> DisplayPortion.RIGHT_HALF
     }
 
     companion object {
