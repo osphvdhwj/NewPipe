@@ -18,27 +18,31 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
 
     private float lastTouchX;
     private float lastTouchY;
-    private float dX, dY;
+    private float dX;
+    private float dY;
     private boolean isDragging = false;
     private boolean hasMoved = false;
-    
+
     // Boundaries to prevent dragging offscreen
     private int minX = 0;
     private int maxX = Integer.MAX_VALUE;
     private int minY = 0;
     private int maxY = Integer.MAX_VALUE;
 
-    public DraggableFitTextView(@NonNull Context context) {
+    public DraggableFitTextView(@NonNull final Context context) {
         super(context);
         init();
     }
 
-    public DraggableFitTextView(@NonNull Context context, @Nullable AttributeSet attrs) {
+    public DraggableFitTextView(@NonNull final Context context, 
+                                @Nullable final AttributeSet attrs) {
         super(context, attrs);
         init();
     }
 
-    public DraggableFitTextView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public DraggableFitTextView(@NonNull final Context context,
+                               @Nullable final AttributeSet attrs,
+                               final int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init();
     }
@@ -52,7 +56,7 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
     }
 
     @Override
-    public boolean onTouch(View view, MotionEvent event) {
+    public boolean onTouch(final View view, final MotionEvent event) {
         final ViewParent parent = getParent();
         if (parent != null) {
             // Request that the parent not intercept touch events during drag
@@ -73,26 +77,29 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
             case MotionEvent.ACTION_MOVE:
                 if (!isDragging) {
                     // Check if this is a drag gesture (moved beyond touch slop)
-                    float deltaX = Math.abs(event.getRawX() - lastTouchX);
-                    float deltaY = Math.abs(event.getRawY() - lastTouchY);
-                    int touchSlop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
-                    
+                    final float deltaX = Math.abs(event.getRawX() - lastTouchX);
+                    final float deltaY = Math.abs(event.getRawY() - lastTouchY);
+                    final int touchSlop = android.view.ViewConfiguration
+                            .get(getContext()).getScaledTouchSlop();
+
                     if (deltaX > touchSlop || deltaY > touchSlop) {
                         isDragging = true;
                         hasMoved = true;
                     }
                 }
-                
+
                 if (isDragging) {
-                    float newX = event.getRawX() + dX;
-                    float newY = event.getRawY() + dY;
-                    
+                    final float newX = event.getRawX() + dX;
+                    final float newY = event.getRawY() + dY;
+
                     // Apply boundaries to prevent dragging offscreen
-                    newX = Math.max(minX, Math.min(maxX - getWidth(), newX));
-                    newY = Math.max(minY, Math.min(maxY - getHeight(), newY));
-                    
-                    view.setX(newX);
-                    view.setY(newY);
+                    final float constrainedX = Math.max(minX, 
+                            Math.min(maxX - getWidth(), newX));
+                    final float constrainedY = Math.max(minY, 
+                            Math.min(maxY - getHeight(), newY));
+
+                    view.setX(constrainedX);
+                    view.setY(constrainedY);
                 }
                 return true;
 
@@ -100,12 +107,12 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
                 if (parent != null) {
                     parent.requestDisallowInterceptTouchEvent(false);
                 }
-                
+
                 if (!hasMoved) {
                     // This was a click, not a drag - perform click action
                     performClick();
                 }
-                
+
                 isDragging = false;
                 return true;
 
@@ -115,22 +122,23 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
                 }
                 isDragging = false;
                 return true;
+
+            default:
+                return false;
         }
-        
-        return false;
     }
 
     @Override
     public boolean performClick() {
         // Call super to handle accessibility
         super.performClick();
-        
+
         // Only perform the actual click action if we didn't drag
         if (!hasMoved) {
             // This will trigger any click listeners set on the view
             return true;
         }
-        
+
         return false;
     }
 
@@ -139,9 +147,9 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
      * This prevents the draggable view from being moved offscreen.
      */
     private void updateBoundaries() {
-        ViewParent parent = getParent();
+        final ViewParent parent = getParent();
         if (parent instanceof View) {
-            View parentView = (View) parent;
+            final View parentView = (View) parent;
             minX = 0;
             minY = 0;
             maxX = parentView.getWidth();
@@ -150,7 +158,7 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
     }
 
     /**
-     * Reset the position to a default location (e.g., original position)
+     * Reset the position to a default location (e.g., original position).
      */
     public void resetPosition() {
         // You can implement logic to reset to original position or center
@@ -158,18 +166,23 @@ public class DraggableFitTextView extends NewPipeTextView implements View.OnTouc
     }
 
     /**
-     * Programmatically set the position with bounds checking
+     * Programmatically set the position with bounds checking.
+     *
+     * @param x the x coordinate to set
+     * @param y the y coordinate to set
      */
-    public void setPosition(float x, float y) {
+    public void setPosition(final float x, final float y) {
         updateBoundaries();
-        float newX = Math.max(minX, Math.min(maxX - getWidth(), x));
-        float newY = Math.max(minY, Math.min(maxY - getHeight(), y));
+        final float newX = Math.max(minX, Math.min(maxX - getWidth(), x));
+        final float newY = Math.max(minY, Math.min(maxY - getHeight(), y));
         setX(newX);
         setY(newY);
     }
 
     /**
-     * Check if the view is currently being dragged
+     * Check if the view is currently being dragged.
+     *
+     * @return true if the view is being dragged, false otherwise
      */
     public boolean isDragging() {
         return isDragging;
