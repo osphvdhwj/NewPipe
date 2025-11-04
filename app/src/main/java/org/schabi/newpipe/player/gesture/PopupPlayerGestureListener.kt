@@ -10,11 +10,12 @@ import org.schabi.newpipe.ktx.animate
 import org.schabi.newpipe.player.Player
 import org.schabi.newpipe.player.helper.AudioReactor
 import org.schabi.newpipe.player.helper.PlayerHelper
-import org.schabi.newpipe.player.ui.MainPlayerUi
+import org.schabi.newpipe.player.ui.PopupPlayerUi
+import org.schabi.newpipe.player.ui.VideoPlayerUi
 import kotlin.math.abs
 
 class PopupPlayerGestureListener(
-    private val playerUi: MainPlayerUi,
+    private val playerUi: PopupPlayerUi,
 ) : BasePlayerGestureListener(playerUi), OnTouchListener {
 
     private var isMoving = false
@@ -69,16 +70,14 @@ class PopupPlayerGestureListener(
                 initSecPointerX = (-1).toFloat(); initSecPointerY = (-1).toFloat()
                 onPopupResizingEnd(); player.changeState(player.currentState)
             }
-            // Remove dependency on MainPlayerUi popup-only APIs to fix unresolved references
             holdStartTime = 0L
         }
         v.performClick(); return true
     }
 
     private fun isCenterAreaTouch(event: MotionEvent): Boolean {
-        // Conservative safe-zone using view bounds since popup params are not available here
-        val width = binding.root.width
-        val height = binding.root.height
+        val width = playerUi.popupLayoutParams.width
+        val height = playerUi.popupLayoutParams.height
         val safeMargin = 0.2f
         val leftBound = width * safeMargin
         val rightBound = width * (1 - safeMargin)
@@ -115,8 +114,8 @@ class PopupPlayerGestureListener(
         } catch (_: Exception) { }
     }
 
-    private fun showSpeedIndicator() { try { binding.fastSeekOverlay.animate(true, 150) } catch (_: Exception) { } }
-    private fun hideSpeedIndicator() { try { binding.fastSeekOverlay.animate(false, 150) } catch (_: Exception) { } }
+    private fun showSpeedIndicator() { try { playerUi.binding.fastSeekOverlay.animate(true, 150) } catch (_: Exception) { } }
+    private fun hideSpeedIndicator() { try { playerUi.binding.fastSeekOverlay.animate(false, 150) } catch (_: Exception) { } }
 
     override fun onScrollEnd(event: MotionEvent) { super.onScrollEnd(event) }
 
@@ -127,15 +126,20 @@ class PopupPlayerGestureListener(
         val minimumMove = android.view.ViewConfiguration.get(player.context).scaledTouchSlop
         if (kotlin.math.max(firstPointerMove, secPointerMove) <= minimumMove) return false
         val currentPointerDistance = kotlin.math.hypot((event.getX(0) - event.getX(1)).toDouble(), (event.getY(0) - event.getY(1)).toDouble())
-        // Resize logic simplified: without popup-specific params, only update size via player API if available
+        val popupWidth = playerUi.popupLayoutParams.width.toDouble()
+        val newWidth = popupWidth * currentPointerDistance / initPointerDistance
+        initPointerDistance = currentPointerDistance
+        playerUi.popupLayoutParams.x += ((popupWidth - newWidth) / 2.0).toInt()
+        playerUi.checkPopupPositionBounds(); playerUi.updateScreenSize()
+        playerUi.changePopupSize(kotlin.math.min(playerUi.screenWidth.toDouble(), newWidth).toInt())
         return true
     }
 
     private fun onPopupResizingStart() {
-        binding.loadingPanel.visibility = View.GONE
+        playerUi.binding.loadingPanel.visibility = View.GONE
         playerUi.hideControls(0, 0)
-        binding.fastSeekOverlay.animate(false, 0)
-        binding.currentDisplaySeek.animate(false, 0, AnimationType.ALPHA, 0)
+        playerUi.binding.fastSeekOverlay.animate(false, 0)
+        playerUi.binding.currentDisplaySeek.animate(false, 0, AnimationType.ALPHA, 0)
         if (isHoldingFor2x) stopSpeedBoost()
     }
 
@@ -177,13 +181,13 @@ class PopupPlayerGestureListener(
     }
 
     override fun getDisplayPortion(e: MotionEvent): DisplayPortion = when {
-        e.x < binding.root.width / 3.0 -> DisplayPortion.LEFT
-        e.x > binding.root.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
+        e.x < playerUi.popupLayoutParams.width / 3.0 -> DisplayPortion.LEFT
+        e.x > playerUi.popupLayoutParams.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
         else -> DisplayPortion.MIDDLE
     }
 
     override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion = when {
-        e.x < binding.root.width / 2.0 -> DisplayPortion.LEFT_HALF
+        e.x < playerUi.popupLayoutParams.width / 2.0 -> DisplayPortion.LEFT_HALF
         else -> DisplayPortion.RIGHT_HALF
     }
 
