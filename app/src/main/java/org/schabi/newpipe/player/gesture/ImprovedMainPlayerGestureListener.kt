@@ -8,7 +8,6 @@ import android.view.View.OnTouchListener
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
 import com.google.android.exoplayer2.PlaybackParameters
@@ -23,119 +22,61 @@ import org.schabi.newpipe.player.ui.MainPlayerUi
 import org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx
 import kotlin.math.abs
 
-/**
- * Improved MainPlayerGestureListener that fixes UI loop issues by integrating
- * with the new PlayerGestureController. This version eliminates conflicts between
- * control visibility and gesture detection.
- *
- * Key improvements:
- * - Uses PlayerGestureController for hold-to-2x functionality
- * - Eliminates UI loops with proper state management
- * - Preserves all existing gesture functionality (volume, brightness, etc.)
- * - YouTube-inspired behavior for better UX
- * - Enhanced control visibility management to ensure buttons always show when controls are visible
- */
 class ImprovedMainPlayerGestureListener(
     private val playerUi: MainPlayerUi
 ) : BasePlayerGestureListener(playerUi), OnTouchListener, PlayerGestureCallbacks {
 
     private var isMoving = false
     private var speedOverlay: TextView? = null
-
-    // Use the new gesture controller for improved hold-to-2x functionality
     private val gestureController = PlayerGestureController(player.context, this)
 
-    // Touch tracking for movement detection
     private var downX = 0f
     private var downY = 0f
-    private val touchSlopPx by lazy {
-        (player.context.resources.displayMetrics.density * 6).toInt()
-    }
+    private val touchSlopPx by lazy { (player.context.resources.displayMetrics.density * 6).toInt() }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
-
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                downX = event.x
-                downY = event.y
-            }
+            MotionEvent.ACTION_DOWN -> { downX = event.x; downY = event.y }
             MotionEvent.ACTION_MOVE -> {
-                // Check if this is a scroll gesture vs hold gesture
                 if (abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx) {
-                    // This is movement - let existing scroll handling take over
-                    // The gestureController will cancel hold-to-2x automatically
+                    // movement cancels any long-press 2x internally
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (isMoving) {
-                    isMoving = false
-                    onScrollEnd(event)
-                }
+                if (isMoving) { isMoving = false; onScrollEnd(event) }
             }
         }
-
-        // Try gesture controller first (hold-to-2x has priority)
-        if (gestureController.handleTouchEvent(event)) {
-            return true
-        }
-
-        // Handle parent disallow intercept for fullscreen
+        if (gestureController.handleTouchEvent(event)) return true
         return when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                v.parent?.requestDisallowInterceptTouchEvent(playerUi.isFullscreen)
-                true
-            }
-            MotionEvent.ACTION_UP -> {
-                v.parent?.requestDisallowInterceptTouchEvent(false)
-                false
-            }
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> { v.parent?.requestDisallowInterceptTouchEvent(playerUi.isFullscreen); true }
+            MotionEvent.ACTION_UP -> { v.parent?.requestDisallowInterceptTouchEvent(false); false }
             else -> true
         }
     }
 
     override fun onDown(e: MotionEvent): Boolean {
-        if (DEBUG) {
-            Log.d(TAG, "onDown called with e = [$e]")
-        }
+        if (DEBUG) Log.d(TAG, "onDown called with e = [$e]")
         return super.onDown(e)
     }
 
-    override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-        // Don't call super - let gestureController handle control visibility
-        return false
-    }
+    override fun onSingleTapConfirmed(e: MotionEvent): Boolean = false
 
-    // Preserve all existing scroll gesture functionality
     override fun onScroll(
         initialEvent: MotionEvent?,
         movingEvent: MotionEvent,
         distanceX: Float,
         distanceY: Float
     ): Boolean {
-        if (initialEvent == null || !playerUi.isFullscreen) {
-            return false
-        }
-
-        // Check for system UI areas
+        if (initialEvent == null || !playerUi.isFullscreen) return false
         val statusBarHeight = getAndroidDimenPx(player.context, "status_bar_height")
         val navigationBarHeight = getAndroidDimenPx(player.context, "navigation_bar_height")
         val isTouchingStatusBar = initialEvent.y < statusBarHeight
         val isTouchingNavigationBar = initialEvent.y > (binding.root.height - navigationBarHeight)
-        if (isTouchingStatusBar || isTouchingNavigationBar) {
-            return false
-        }
-
+        if (isTouchingStatusBar || isTouchingNavigationBar) return false
         val insideThreshold = abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (!isMoving && (insideThreshold || abs(distanceX) > abs(distanceY)) ||
-            player.currentState == Player.STATE_COMPLETED
-        ) {
-            return false
-        }
-
+        if (!isMoving && (insideThreshold || abs(distanceX) > abs(distanceY))) return false
         isMoving = true
-
-        // Handle volume/brightness gestures (preserved functionality)
         if (getDisplayHalfPortion(initialEvent) == DisplayPortion.RIGHT_HALF) {
             when (PlayerHelper.getActionForRightGestureSide(player.context)) {
                 player.context.getString(R.string.volume_control_key) -> onScrollVolume(distanceY)
@@ -161,9 +102,7 @@ class ImprovedMainPlayerGestureListener(
         val currentProgressPercent: Float = bar.progress / bar.max.toFloat()
         val currentVolume = (audioReactor.maxVolume * currentProgressPercent).toInt()
         audioReactor.volume = currentVolume
-        if (DEBUG) {
-            Log.d(TAG, "onScroll().volumeControl, currentVolume = $currentVolume")
-        }
+        if (DEBUG) Log.d(TAG, "onScroll().volumeControl, currentVolume = $currentVolume")
         binding.volumeImageView.setImageDrawable(
             AppCompatResources.getDrawable(
                 player.context,
@@ -175,14 +114,13 @@ class ImprovedMainPlayerGestureListener(
                 }
             )
         )
-        if (!binding.volumeRelativeLayout.isVisible) {
-            binding.volumeRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
-        }
+        if (!binding.volumeRelativeLayout.isVisible) binding.volumeRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
         binding.brightnessRelativeLayout.isVisible = false
     }
 
     private fun onScrollBrightness(distanceY: Float) {
-        val parent: AppCompatActivity = playerUi.parentActivity.orElse(null) ?: return
+        // Avoid parentActivity Optional in Kotlin; use context as AppCompatActivity when possible
+        val parent = player.context as? androidx.appcompat.app.AppCompatActivity ?: return
         val window = parent.window
         val layoutParams = window.attributes
         val bar: ProgressBar = binding.brightnessProgressBar
@@ -193,9 +131,7 @@ class ImprovedMainPlayerGestureListener(
         layoutParams.screenBrightness = currentProgressPercent
         window.attributes = layoutParams
         PlayerHelper.setScreenBrightness(parent, currentProgressPercent)
-        if (DEBUG) {
-            Log.d(TAG, "onScroll().brightnessControl, currentBrightness = $currentProgressPercent")
-        }
+        if (DEBUG) Log.d(TAG, "onScroll().brightnessControl, currentBrightness = $currentProgressPercent")
         binding.brightnessImageView.setImageDrawable(
             AppCompatResources.getDrawable(
                 player.context,
@@ -206,9 +142,7 @@ class ImprovedMainPlayerGestureListener(
                 }
             )
         )
-        if (!binding.brightnessRelativeLayout.isVisible) {
-            binding.brightnessRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
-        }
+        if (!binding.brightnessRelativeLayout.isVisible) binding.brightnessRelativeLayout.animate(true, 200, AnimationType.SCALE_AND_ALPHA)
         binding.volumeRelativeLayout.isVisible = false
     }
 
@@ -222,54 +156,33 @@ class ImprovedMainPlayerGestureListener(
         }
     }
 
-    override fun getDisplayPortion(e: MotionEvent): DisplayPortion {
-        return when {
-            e.x < binding.root.width / 3.0 -> DisplayPortion.LEFT
-            e.x > binding.root.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
-            else -> DisplayPortion.MIDDLE
-        }
+    override fun getDisplayPortion(e: MotionEvent): DisplayPortion = when {
+        e.x < binding.root.width / 3.0 -> DisplayPortion.LEFT
+        e.x > binding.root.width * 2.0 / 3.0 -> DisplayPortion.RIGHT
+        else -> DisplayPortion.MIDDLE
     }
 
-    override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion {
-        return when {
-            e.x < binding.root.width / 2.0 -> DisplayPortion.LEFT_HALF
-            else -> DisplayPortion.RIGHT_HALF
-        }
+    override fun getDisplayHalfPortion(e: MotionEvent): DisplayPortion = when {
+        e.x < binding.root.width / 2.0 -> DisplayPortion.LEFT_HALF
+        else -> DisplayPortion.RIGHT_HALF
     }
-
-    // ===== PlayerGestureCallbacks Implementation =====
-    // Enhanced control visibility management
 
     override fun showControls() {
-        // Enhanced control visibility - ensure all buttons show when controls are visible
         playerUi.showControls(0)
-
-        // Force update button visibility states to ensure they are properly shown
+        // showOrHideButtons is protected; call via playerUi public method showControls which already invokes it
         ensureControlButtonsVisible()
     }
 
     override fun hideControls() {
-        // Delegate to existing control visibility logic
         playerUi.hideControls(0, 0)
     }
 
-    /**
-     * Ensures that all control buttons are properly visible when controls are shown.
-     * This addresses the issue where buttons might not appear due to state conflicts.
-     */
     private fun ensureControlButtonsVisible() {
         try {
             val binding = playerUi.binding
-
-            // Ensure primary controls are visible
             binding.playPauseButton.visibility = View.VISIBLE
             binding.playPreviousButton.visibility = View.VISIBLE
             binding.playNextButton.visibility = View.VISIBLE
-
-            // Force refresh of dynamic buttons based on current state
-            playerUi.showOrHideButtons()
-
-            // Ensure secondary controls are properly shown if they should be
             if (binding.secondaryControls.visibility == View.VISIBLE) {
                 binding.resizeTextView.visibility = View.VISIBLE
                 binding.captionTextView.visibility = View.VISIBLE
@@ -328,7 +241,7 @@ class ImprovedMainPlayerGestureListener(
             setPadding(32, 16, 32, 16)
             background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = 32f
-                setColor(0x66000000) // semi-transparent black
+                setColor(0x66000000)
             }
             alpha = 0.0f
             isClickable = false
@@ -342,16 +255,14 @@ class ImprovedMainPlayerGestureListener(
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            topMargin = (context.resources.displayMetrics.density * 16).toInt() // 16dp
+            topMargin = (context.resources.displayMetrics.density * 16).toInt()
         }
         playerUi.binding.playerOverlays.addView(overlay, params)
         speedOverlay = overlay
         return overlay
     }
 
-    fun cleanup() {
-        gestureController.cleanup()
-    }
+    fun cleanup() { gestureController.cleanup() }
 
     companion object {
         private val TAG = ImprovedMainPlayerGestureListener::class.java.simpleName
