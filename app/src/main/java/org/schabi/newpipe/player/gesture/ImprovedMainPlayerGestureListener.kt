@@ -33,6 +33,7 @@ import kotlin.math.abs
  * - Eliminates UI loops with proper state management
  * - Preserves all existing gesture functionality (volume, brightness, etc.)
  * - YouTube-inspired behavior for better UX
+ * - Enhanced control visibility management to ensure buttons always show when controls are visible
  */
 class ImprovedMainPlayerGestureListener(
     private val playerUi: MainPlayerUi
@@ -237,15 +238,49 @@ class ImprovedMainPlayerGestureListener(
     }
 
     // ===== PlayerGestureCallbacks Implementation =====
+    // Enhanced control visibility management
 
     override fun showControls() {
-        // Delegate to existing control visibility logic
+        // Enhanced control visibility - ensure all buttons show when controls are visible
         playerUi.showControls(0)
+        
+        // Force update button visibility states to ensure they are properly shown
+        ensureControlButtonsVisible()
     }
 
     override fun hideControls() {
         // Delegate to existing control visibility logic
         playerUi.hideControls(0, 0)
+    }
+
+    /**
+     * Ensures that all control buttons are properly visible when controls are shown.
+     * This addresses the issue where buttons might not appear due to state conflicts.
+     */
+    private fun ensureControlButtonsVisible() {
+        try {
+            val binding = playerUi.binding
+            
+            // Ensure primary controls are visible
+            binding.playPauseButton.visibility = View.VISIBLE
+            binding.playPreviousButton.visibility = View.VISIBLE
+            binding.playNextButton.visibility = View.VISIBLE
+            
+            // Force refresh of dynamic buttons based on current state
+            playerUi.showOrHideButtons()
+            
+            // Ensure secondary controls are properly shown if they should be
+            if (binding.secondaryControls.visibility == View.VISIBLE) {
+                binding.resizeTextView.visibility = View.VISIBLE
+                binding.captionTextView.visibility = View.VISIBLE
+                binding.share.visibility = View.VISIBLE
+                binding.openInBrowser.visibility = View.VISIBLE
+                binding.switchMute.visibility = View.VISIBLE
+            }
+            
+        } catch (e: Exception) {
+            if (DEBUG) Log.e(TAG, "Error ensuring control buttons visible", e)
+        }
     }
 
     override fun showSpeedIndicator(speed: Float) {
