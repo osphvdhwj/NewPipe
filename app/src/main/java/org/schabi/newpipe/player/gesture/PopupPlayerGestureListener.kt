@@ -31,8 +31,41 @@ class PopupPlayerGestureListener(
     private var initSecPointerX = -1f
     private var initSecPointerY = -1f
 
+    // Hold-to-2x speed functionality for popup mode
+    private var isHoldingFor2x = false
+    private var holdStartTime = 0L
+    private val holdToSpeedDelay = 500L // Longer delay to avoid conflicts with drag/resize
+
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
+
+        // Handle hold-to-2x speed for center area single touch
+        if (event.pointerCount == 1 && !isMoving && !isResizing) {
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Check if touch is in the safe center area (avoid edges for drag/close)
+                    if (isCenterAreaTouch(event)) {
+                        holdStartTime = System.currentTimeMillis()
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (isHoldingFor2x) {
+                        stopSpeedBoost()
+                        return true // Consume event to prevent other actions
+                    }
+                }
+            }
+
+            // Check for long press in center area
+            if (event.action == MotionEvent.ACTION_MOVE && !isHoldingFor2x &&
+                holdStartTime > 0 && isCenterAreaTouch(event)) {
+                val holdDuration = System.currentTimeMillis() - holdStartTime
+                if (holdDuration >= holdToSpeedDelay) {
+                    startSpeedBoost()
+                }
+            }
+        }
+
         if (event.pointerCount == 2 && !isMoving && !isResizing) {
             if (DEBUG) {
                 Log.d(TAG, "onTouch() 2 finger pointer detected, enabling resizing.")
@@ -89,10 +122,127 @@ class PopupPlayerGestureListener(
             if (!playerUi.isPopupClosing) {
                 playerUi.savePopupPositionAndSizeToPrefs()
             }
+
+            // Reset hold tracking
+            holdStartTime = 0L
         }
 
         v.performClick()
         return true
+    }
+
+    /**
+     * Check if the touch is in the safe center area where hold-to-2x won't conflict
+     * with drag, resize, or close gestures.
+     */
+    private fun isCenterAreaTouch(event: MotionEvent): Boolean {
+        val width = playerUi.popupLayoutParams.width
+        val height = playerUi.popupLayoutParams.height
+        
+        // Define safe zone as center 40% of the popup (20% margin on all sides)
+        val safeMargin = 0.2f
+        val leftBound = width * safeMargin
+        val rightBound = width * (1 - safeMargin)
+        val topBound = height * safeMargin
+        val bottomBound = height * (1 - safeMargin)
+        
+        return event.x >= leftBound && event.x <= rightBound &&
+               event.y >= topBound && event.y <= bottomBound
+    }
+
+    /**
+     * Start 2x speed playback in popup mode
+     */
+    private fun startSpeedBoost() {
+        if (isHoldingFor2x) return
+        
+        isHoldingFor2x = true
+        
+        try {
+            // Set playback speed to 2x
+            player.exoPlayer?.let { exoPlayer ->
+                val currentParams = exoPlayer.playbackParameters
+                val newParams = com.google.android.exoplayer2.PlaybackParameters(2.0f, currentParams.pitch)
+                exoPlayer.setPlaybackParameters(newParams)
+            }
+            
+            // Show speed indicator overlay
+            showSpeedIndicator()
+            
+            // Haptic feedback
+            val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            if (vib != null) {
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION") vib.vibrate(25)
+                }
+            }
+            
+            if (DEBUG) {
+                Log.d(TAG, "Started 2x speed boost in popup mode")
+            }
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error starting speed boost in popup", e)
+            }
+        }
+    }
+
+    /**
+     * Stop 2x speed playback and return to normal speed
+     */
+    private fun stopSpeedBoost() {
+        if (!isHoldingFor2x) return
+        
+        isHoldingFor2x = false
+        
+        try {
+            // Reset playback speed to 1x
+            player.exoPlayer?.let { exoPlayer ->
+                val currentParams = exoPlayer.playbackParameters
+                val newParams = com.google.android.exoplayer2.PlaybackParameters(1.0f, currentParams.pitch)
+                exoPlayer.setPlaybackParameters(newParams)
+            }
+            
+            // Hide speed indicator
+            hideSpeedIndicator()
+            
+            if (DEBUG) {
+                Log.d(TAG, "Stopped 2x speed boost in popup mode")
+            }
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error stopping speed boost in popup", e)
+            }
+        }
+    }
+
+    /**
+     * Show speed indicator overlay in popup
+     */
+    private fun showSpeedIndicator() {
+        try {
+            // Use the existing fast seek overlay or create a simple indicator
+            binding.fastSeekOverlay.animate(true, 150)
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error showing speed indicator", e)
+            }
+        }
+    }
+
+    /**
+     * Hide speed indicator overlay
+     */
+    private fun hideSpeedIndicator() {
+        try {
+            binding.fastSeekOverlay.animate(false, 150)
+        } catch (e: Exception) {
+            if (DEBUG) {
+                Log.e(TAG, "Error hiding speed indicator", e)
+            }
+        }
     }
 
     override fun onScrollEnd(event: MotionEvent) {
@@ -152,6 +302,11 @@ class PopupPlayerGestureListener(
         playerUi.hideControls(0, 0)
         binding.fastSeekOverlay.animate(false, 0)
         binding.currentDisplaySeek.animate(false, 0, AnimationType.ALPHA, 0)
+        
+        // Cancel any ongoing speed boost when resizing starts
+        if (isHoldingFor2x) {
+            stopSpeedBoost()
+        }
     }
 
     private fun onPopupResizingEnd() {
@@ -161,9 +316,18 @@ class PopupPlayerGestureListener(
     }
 
     override fun onLongPress(e: MotionEvent) {
-        playerUi.updateScreenSize()
-        playerUi.checkPopupPositionBounds()
-        playerUi.changePopupSize(playerUi.screenWidth)
+        // Check if this is in the center area and not conflicting with resize
+        if (!isResizing && !isMoving && isCenterAreaTouch(e)) {
+            // Start hold-to-2x instead of maximize popup
+            if (!isHoldingFor2x) {
+                startSpeedBoost()
+            }
+        } else {
+            // Original behavior: maximize popup size
+            playerUi.updateScreenSize()
+            playerUi.checkPopupPositionBounds()
+            playerUi.changePopupSize(playerUi.screenWidth)
+        }
     }
 
     override fun onFling(
@@ -229,6 +393,11 @@ class PopupPlayerGestureListener(
 
         if (isResizing) {
             return super.onScroll(initialEvent, movingEvent, distanceX, distanceY)
+        }
+
+        // Cancel hold-to-2x when scrolling starts
+        if (isHoldingFor2x) {
+            stopSpeedBoost()
         }
 
         if (!isMoving) {
