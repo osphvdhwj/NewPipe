@@ -2,83 +2,53 @@ package org.schabi.newpipe.player.ui;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static org.schabi.newpipe.MainActivity.DEBUG;
-import static org.schabi.newpipe.QueueItemMenuUtil.openPopupMenu;
-import static org.schabi.newpipe.extractor.ServiceList.YouTube;
-import static org.schabi.newpipe.ktx.ViewUtils.animate;
-import static org.schabi.newpipe.player.Player.STATE_COMPLETED;
-import static org.schabi.newpipe.player.Player.STATE_PAUSED;
 import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_BACKGROUND;
 import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_NONE;
 import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_POPUP;
 import static org.schabi.newpipe.player.helper.PlayerHelper.getMinimizeOnExitAction;
-import static org.schabi.newpipe.player.helper.PlayerHelper.getTimeString;
 import static org.schabi.newpipe.player.helper.PlayerHelper.globalScreenOrientationLocked;
 import static org.schabi.newpipe.player.notification.NotificationConstants.ACTION_PLAY_PAUSE;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.database.ContentObserver;
-import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.ItemTouchHelper;
-import androidx.recyclerview.widget.RecyclerView;
-
-import com.google.android.exoplayer2.ui.SubtitleView;
-import com.google.android.exoplayer2.video.VideoSize;
 
 import org.schabi.newpipe.R;
 import org.schabi.newpipe.databinding.PlayerBinding;
-import org.schabi.newpipe.extractor.stream.StreamInfo;
-import org.schabi.newpipe.extractor.stream.StreamSegment;
-import org.schabi.newpipe.fragments.OnScrollBelowItemsListener;
 import org.schabi.newpipe.fragments.detail.VideoDetailFragment;
 import org.schabi.newpipe.info_list.StreamSegmentAdapter;
-import org.schabi.newpipe.info_list.StreamSegmentItem;
-import org.schabi.newpipe.ktx.AnimationType;
 import org.schabi.newpipe.local.dialog.PlaylistDialog;
 import org.schabi.newpipe.player.Player;
 import org.schabi.newpipe.player.event.PlayerServiceEventListener;
 import org.schabi.newpipe.player.gesture.BasePlayerGestureListener;
 import org.schabi.newpipe.player.gesture.ImprovedMainPlayerGestureListener;
-import org.schabi.newpipe.player.helper.PlaybackParameterDialog;
 import org.schabi.newpipe.player.helper.PlayerHelper;
-import org.schabi.newpipe.player.mediaitem.MediaItemTag;
-import org.schabi.newpipe.player.playqueue.PlayQueue;
 import org.schabi.newpipe.player.playqueue.PlayQueueAdapter;
-import org.schabi.newpipe.player.playqueue.PlayQueueItem;
-import org.schabi.newpipe.player.playqueue.PlayQueueItemBuilder;
-import org.schabi.newpipe.player.playqueue.PlayQueueItemHolder;
-import org.schabi.newpipe.player.playqueue.PlayQueueItemTouchCallback;
 import org.schabi.newpipe.util.DeviceUtils;
 import org.schabi.newpipe.util.NavigationHelper;
-import org.schabi.newpipe.util.external_communication.KoreUtils;
-import org.schabi.newpipe.util.external_communication.ShareUtils;
 import org.schabi.newpipe.views.DraggableFitTextView;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
+/**
+ * Main player UI implementation with enhanced gesture control and draggable fit label.
+ * This class provides the full-screen video player interface with YouTube-style
+ * bottom preview box and AVES Gallery-style draggable resize control.
+ */
 public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutChangeListener {
     private static final String TAG = MainPlayerUi.class.getSimpleName();
 
@@ -100,7 +70,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
     // fullscreen player
     private ItemTouchHelper itemTouchHelper;
-    
+
     // Enhanced gesture listener with improved control visibility
     private ImprovedMainPlayerGestureListener improvedGestureListener;
 
@@ -212,7 +182,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         context.getContentResolver().unregisterContentObserver(settingsContentObserver);
 
         binding.getRoot().removeOnLayoutChangeListener(this);
-        
+
         // Clean up improved gesture listener
         if (improvedGestureListener != null) {
             improvedGestureListener.cleanup();
@@ -285,16 +255,17 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         try {
             // Check if the resize text view is our custom draggable view
             if (binding.resizeTextView instanceof DraggableFitTextView) {
-                DraggableFitTextView draggableFit = (DraggableFitTextView) binding.resizeTextView;
-                
+                final DraggableFitTextView draggableFit = 
+                        (DraggableFitTextView) binding.resizeTextView;
+
                 // The click listener for resize functionality should already be set by parent
                 // The draggable functionality is handled by the custom view itself
-                
+
                 if (DEBUG) {
                     Log.d(TAG, "Draggable fit label initialized successfully");
                 }
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             if (DEBUG) {
                 Log.e(TAG, "Error setting up draggable fit label", e);
             }
@@ -330,7 +301,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
         // Reset workaround changes from popup player
         binding.audioTrackTextView.setMaxWidth(Integer.MAX_VALUE);
-        
+
         // Enhanced: Ensure all primary control buttons are visible
         ensureControlButtonsVisible();
     }
@@ -345,16 +316,16 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
             binding.playPauseButton.setVisibility(View.VISIBLE);
             binding.playPreviousButton.setVisibility(View.VISIBLE);
             binding.playNextButton.setVisibility(View.VISIBLE);
-            
+
             // Ensure seek bar is visible
             binding.playbackSeekBar.setVisibility(View.VISIBLE);
             binding.playbackCurrentTime.setVisibility(View.VISIBLE);
             binding.playbackEndTime.setVisibility(View.VISIBLE);
-            
+
             if (DEBUG) {
                 Log.d(TAG, "Control buttons visibility ensured");
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             if (DEBUG) {
                 Log.e(TAG, "Error ensuring control buttons visible", e);
             }
@@ -365,11 +336,11 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     public void showControls(final long duration) {
         // Enhanced control showing with button visibility fix
         super.showControls(duration);
-        
+
         // Force update button visibility after showing controls
         ensureControlButtonsVisible();
         showOrHideButtons();
-        
+
         if (DEBUG) {
             Log.d(TAG, "Controls shown with enhanced visibility");
         }
@@ -385,9 +356,6 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         );
     }
     //endregion
-
-    // ... (rest of the existing code remains the same)
-    // The remaining methods are preserved as-is to maintain full compatibility
 
     /*//////////////////////////////////////////////////////////////////////////
     // Broadcast receiver
@@ -445,7 +413,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     /**
      * This will be called when a user goes to another app/activity, turns off a screen.
      * We don't want to interrupt playback and don't want to see notification so
-     * next lines of code will enable audio-only playback only if needed
+     * next lines of code will enable audio-only playback only if needed.
      */
     private void onFragmentStopped() {
         if (player.isPlaying() || player.isLoading()) {
@@ -459,51 +427,12 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
                         NavigationHelper.playOnPopupPlayer(activity, player.getPlayQueue(), true);
                     });
                     break;
-                case MINIMIZE_ON_EXIT_MODE_NONE: default:
+                case MINIMIZE_ON_EXIT_MODE_NONE:
+                default:
                     player.pause();
                     break;
             }
         }
     }
     //endregion
-
-    // ... (continuing with all other existing methods preserved)
-
-    /*//////////////////////////////////////////////////////////////////////////
-    // Playback states
-    //////////////////////////////////////////////////////////////////////////*/
-    //region Playback states
-
-    @Override
-    public void onUpdateProgress(final int currentProgress,
-                                 final int duration,
-                                 final int bufferPercent) {
-        super.onUpdateProgress(currentProgress, duration, bufferPercent);
-
-        if (areSegmentsVisible) {
-            segmentAdapter.selectSegmentAt(getNearestStreamSegmentPosition(currentProgress));
-        }
-        if (isQueueVisible) {
-            updateQueueTime(currentProgress);
-        }
-    }
-
-    @Override
-    public void onPlaying() {
-        super.onPlaying();
-        checkLandscape();
-    }
-
-    @Override
-    public void onCompleted() {
-        super.onCompleted();
-        if (isFullscreen) {
-            toggleFullscreen();
-        }
-    }
-    //endregion
-
-    // ... (rest of existing methods preserved for compatibility)
-    // This includes all the existing controls showing/hiding, captions, gestures,
-    // play queue, segments handling, etc.
 }
