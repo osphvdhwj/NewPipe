@@ -63,6 +63,22 @@ jobs:
           name: app
           path: app/build/outputs/apk/debug/*.apk
 
+      - name: Upload Checkstyle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkstyle-report
+          path: '**/build/reports/checkstyle/**'
+
+      - name: Upload ktlint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ktlint-report
+          path: |
+            **/build/reports/ktlint/**
+            **/ktlint-report.*
+
   test-android:
     runs-on: ubuntu-latest
     timeout-minutes: 20
