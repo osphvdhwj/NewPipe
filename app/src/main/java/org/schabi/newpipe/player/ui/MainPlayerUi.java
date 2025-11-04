@@ -2,15 +2,7 @@ package org.schabi.newpipe.player.ui;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static org.schabi.newpipe.MainActivity.DEBUG;
-import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_BACKGROUND;
-import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_NONE;
-import static org.schabi.newpipe.player.helper.PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_POPUP;
-import static org.schabi.newpipe.player.helper.PlayerHelper.getMinimizeOnExitAction;
-import static org.schabi.newpipe.player.helper.PlayerHelper.globalScreenOrientationLocked;
-import static org.schabi.newpipe.player.notification.NotificationConstants.ACTION_PLAY_PAUSE;
 
-import android.content.Intent;
-import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.os.Handler;
@@ -30,21 +22,15 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 
 import org.schabi.newpipe.R;
 import org.schabi.newpipe.databinding.PlayerBinding;
-import org.schabi.newpipe.fragments.detail.VideoDetailFragment;
-import org.schabi.newpipe.info_list.StreamSegmentAdapter;
-import org.schabi.newpipe.local.dialog.PlaylistDialog;
 import org.schabi.newpipe.player.Player;
 import org.schabi.newpipe.player.event.PlayerServiceEventListener;
 import org.schabi.newpipe.player.gesture.BasePlayerGestureListener;
 import org.schabi.newpipe.player.gesture.ImprovedMainPlayerGestureListener;
 import org.schabi.newpipe.player.helper.PlayerHelper;
 import org.schabi.newpipe.player.playqueue.PlayQueueAdapter;
-import org.schabi.newpipe.util.DeviceUtils;
-import org.schabi.newpipe.util.NavigationHelper;
 import org.schabi.newpipe.views.DraggableFitTextView;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Main player UI implementation with enhanced gesture control.
@@ -115,8 +101,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     protected void initListeners() {
         super.initListeners();
         binding.screenRotationButton.setOnClickListener(makeOnClickListener(() -> {
-            if (!isVerticalVideo
-                    || (isLandscape() && globalScreenOrientationLocked(context))) {
+            if (!isVerticalVideo || (isLandscape() && globalScreenOrientationLocked(context))) {
                 player.getFragmentListener().ifPresent(
                         PlayerServiceEventListener::onScreenRotationButtonClicked);
             } else {
@@ -206,8 +191,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
     private void initVideoPlayer() {
         setResizeMode(PlayerHelper.retrieveResizeModeFromPrefs(player));
-        binding.getRoot().setLayoutParams(
-                new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+        binding.getRoot().setLayoutParams(new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
     }
 
     private void setupDraggableFitLabel() {
@@ -237,15 +221,12 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         binding.topControls.setOrientation(LinearLayout.VERTICAL);
         binding.primaryControls.getLayoutParams().width = MATCH_PARENT;
         binding.secondaryControls.setVisibility(View.INVISIBLE);
-        binding.moreOptionsButton.setImageDrawable(
-                AppCompatResources.getDrawable(context, R.drawable.ic_expand_more));
+        binding.moreOptionsButton.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_expand_more));
         binding.share.setVisibility(View.VISIBLE);
         binding.openInBrowser.setVisibility(View.VISIBLE);
         binding.switchMute.setVisibility(View.VISIBLE);
-        binding.playerCloseButton.setVisibility(
-                isFullscreen ? View.GONE : View.VISIBLE);
-        binding.metadataView.setVisibility(
-                isFullscreen ? View.VISIBLE : View.GONE);
+        binding.playerCloseButton.setVisibility(isFullscreen ? View.GONE : View.VISIBLE);
+        binding.metadataView.setVisibility(isFullscreen ? View.VISIBLE : View.GONE);
         binding.audioTrackTextView.setMaxWidth(Integer.MAX_VALUE);
         ensureControlButtonsVisible();
     }
@@ -287,4 +268,123 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         // Simplified implementation
         return 200.0f;
     }
+
+    /**
+     * Check if the video is in vertical format.
+     *
+     * @return true if video is vertical
+     */
+    public boolean isVerticalVideo() {
+        return isVerticalVideo;
+    }
+
+    /**
+     * Check if device is in landscape orientation.
+     *
+     * @return true if in landscape
+     */
+    public boolean isLandscape() {
+        return context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+    }
+
+    /**
+     * Toggle fullscreen mode.
+     */
+    public void toggleFullscreen() {
+        isFullscreen = !isFullscreen;
+        if (isFullscreen) {
+            showSystemUIPartially();
+        } else {
+            hideSystemUIIfNeeded();
+        }
+        setupElementsVisibility();
+    }
+
+    /**
+     * Close any open item lists (queue/segments).
+     */
+    public void closeItemsList() {
+        try {
+            binding.itemsListPanel.setVisibility(View.GONE);
+            isQueueVisible = false;
+            areSegmentsVisible = false;
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
+    }
+
+    /**
+     * Show or hide the Kodi button.
+     */
+    public void showHideKodiButton() {
+        try {
+            binding.playWithKodi.setVisibility(View.VISIBLE);
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
+    }
+
+    /**
+     * Setup the screen rotation button.
+     */
+    public void setupScreenRotationButton() {
+        try {
+            binding.screenRotationButton.setVisibility(View.VISIBLE);
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
+    }
+
+    /**
+     * Check landscape orientation and adjust fullscreen if needed.
+     */
+    public void checkLandscape() {
+        if (isFullscreen && !isLandscape()) {
+            toggleFullscreen();
+        }
+    }
+
+    /**
+     * Get the parent activity.
+     *
+     * @return Optional containing the parent activity
+     */
+    public Optional<FragmentActivity> getParentActivity() {
+        return player.getFragmentListener().flatMap(PlayerServiceEventListener::getActivity);
+    }
+
+    /**
+     * Get the stream segment listener.
+     *
+     * @return the stream segment listener
+     */
+    public StreamSegmentAdapter.StreamSegmentListener getStreamSegmentListener() {
+        // No-op for now
+        return (segment, clickType) -> {};
+    }
+
+    /**
+     * Handle queue button click.
+     */
+    private void onQueueClicked() {
+        isQueueVisible = !isQueueVisible;
+        if (isQueueVisible) {
+            binding.itemsListPanel.setVisibility(View.VISIBLE);
+        } else {
+            closeItemsList();
+        }
+    }
+
+    /**
+     * Handle segments button click.
+     */
+    private void onSegmentsClicked() {
+        areSegmentsVisible = !areSegmentsVisible;
+        if (areSegmentsVisible) {
+            binding.itemsListPanel.setVisibility(View.VISIBLE);
+        } else {
+            closeItemsList();
+        }
+    }
+
 }
