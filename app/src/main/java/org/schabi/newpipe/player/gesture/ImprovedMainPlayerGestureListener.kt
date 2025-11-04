@@ -243,7 +243,7 @@ class ImprovedMainPlayerGestureListener(
     override fun showControls() {
         // Enhanced control visibility - ensure all buttons show when controls are visible
         playerUi.showControls(0)
-        
+
         // Force update button visibility states to ensure they are properly shown
         ensureControlButtonsVisible()
     }
@@ -260,15 +260,15 @@ class ImprovedMainPlayerGestureListener(
     private fun ensureControlButtonsVisible() {
         try {
             val binding = playerUi.binding
-            
+
             // Ensure primary controls are visible
             binding.playPauseButton.visibility = View.VISIBLE
             binding.playPreviousButton.visibility = View.VISIBLE
             binding.playNextButton.visibility = View.VISIBLE
-            
+
             // Force refresh of dynamic buttons based on current state
             playerUi.showOrHideButtons()
-            
+
             // Ensure secondary controls are properly shown if they should be
             if (binding.secondaryControls.visibility == View.VISIBLE) {
                 binding.resizeTextView.visibility = View.VISIBLE
@@ -277,7 +277,6 @@ class ImprovedMainPlayerGestureListener(
                 binding.openInBrowser.visibility = View.VISIBLE
                 binding.switchMute.visibility = View.VISIBLE
             }
-            
         } catch (e: Exception) {
             if (DEBUG) Log.e(TAG, "Error ensuring control buttons visible", e)
         }
