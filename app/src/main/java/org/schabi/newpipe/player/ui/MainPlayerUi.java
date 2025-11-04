@@ -255,7 +255,7 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         try {
             // Check if the resize text view is our custom draggable view
             if (binding.resizeTextView instanceof DraggableFitTextView) {
-                final DraggableFitTextView draggableFit = 
+                final DraggableFitTextView draggableFit =
                         (DraggableFitTextView) binding.resizeTextView;
 
                 // The click listener for resize functionality should already be set by parent
