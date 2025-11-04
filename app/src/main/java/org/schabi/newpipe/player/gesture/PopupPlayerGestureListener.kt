@@ -36,8 +36,7 @@ class PopupPlayerGestureListener(
                     holdStartTime = System.currentTimeMillis()
                 }
                 MotionEvent.ACTION_UP -> if (isHoldingFor2x) {
-                    stopSpeedBoost()
-                    return true
+                    stopSpeedBoost(); return true
                 }
             }
             if (event.action == MotionEvent.ACTION_MOVE && !isHoldingFor2x
@@ -93,7 +92,7 @@ class PopupPlayerGestureListener(
         val topBound = height * safeMargin
         val bottomBound = height * (1 - safeMargin)
         return event.x >= leftBound && event.x <= rightBound
-                && event.y >= topBound && event.y <= bottomBound
+            && event.y >= topBound && event.y <= bottomBound
     }
 
     private fun startSpeedBoost() {
