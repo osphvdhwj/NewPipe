@@ -8,7 +8,6 @@ import android.view.View.OnTouchListener
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.isVisible
 import com.google.android.exoplayer2.PlaybackParameters
 import org.schabi.newpipe.MainActivity
@@ -104,7 +103,7 @@ class ImprovedMainPlayerGestureListener(
         audioReactor.volume = currentVolume
         if (DEBUG) Log.d(TAG, "onScroll().volumeControl, currentVolume = $currentVolume")
         binding.volumeImageView.setImageDrawable(
-            AppCompatResources.getDrawable(
+            androidx.appcompat.content.res.AppCompatResources.getDrawable(
                 player.context,
                 when {
                     currentProgressPercent <= 0 -> R.drawable.ic_volume_off
@@ -119,7 +118,6 @@ class ImprovedMainPlayerGestureListener(
     }
 
     private fun onScrollBrightness(distanceY: Float) {
-        // Avoid parentActivity Optional in Kotlin; use context as AppCompatActivity when possible
         val parent = player.context as? androidx.appcompat.app.AppCompatActivity ?: return
         val window = parent.window
         val layoutParams = window.attributes
@@ -133,7 +131,7 @@ class ImprovedMainPlayerGestureListener(
         PlayerHelper.setScreenBrightness(parent, currentProgressPercent)
         if (DEBUG) Log.d(TAG, "onScroll().brightnessControl, currentBrightness = $currentProgressPercent")
         binding.brightnessImageView.setImageDrawable(
-            AppCompatResources.getDrawable(
+            androidx.appcompat.content.res.AppCompatResources.getDrawable(
                 player.context,
                 when {
                     currentProgressPercent < 0.25 -> R.drawable.ic_brightness_low
@@ -148,12 +146,8 @@ class ImprovedMainPlayerGestureListener(
 
     override fun onScrollEnd(event: MotionEvent) {
         super.onScrollEnd(event)
-        if (binding.volumeRelativeLayout.isVisible) {
-            binding.volumeRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
-        }
-        if (binding.brightnessRelativeLayout.isVisible) {
-            binding.brightnessRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
-        }
+        if (binding.volumeRelativeLayout.isVisible) binding.volumeRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
+        if (binding.brightnessRelativeLayout.isVisible) binding.brightnessRelativeLayout.animate(false, 200, AnimationType.SCALE_AND_ALPHA, 200)
     }
 
     override fun getDisplayPortion(e: MotionEvent): DisplayPortion = when {
@@ -169,13 +163,10 @@ class ImprovedMainPlayerGestureListener(
 
     override fun showControls() {
         playerUi.showControls(0)
-        // showOrHideButtons is protected; call via playerUi public method showControls which already invokes it
         ensureControlButtonsVisible()
     }
 
-    override fun hideControls() {
-        playerUi.hideControls(0, 0)
-    }
+    override fun hideControls() { playerUi.hideControls(0, 0) }
 
     private fun ensureControlButtonsVisible() {
         try {
@@ -190,9 +181,7 @@ class ImprovedMainPlayerGestureListener(
                 binding.openInBrowser.visibility = View.VISIBLE
                 binding.switchMute.visibility = View.VISIBLE
             }
-        } catch (e: Exception) {
-            if (DEBUG) Log.e(TAG, "Error ensuring control buttons visible", e)
-        }
+        } catch (e: Exception) { if (DEBUG) Log.e(TAG, "Error ensuring control buttons visible", e) }
     }
 
     override fun showSpeedIndicator(speed: Float) {
@@ -202,9 +191,7 @@ class ImprovedMainPlayerGestureListener(
         overlay.animate().alpha(1.0f).setDuration(120).start()
     }
 
-    override fun hideSpeedIndicator() {
-        speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.start()
-    }
+    override fun hideSpeedIndicator() { speedOverlay?.animate()?.alpha(0f)?.setDuration(120)?.start() }
 
     override fun setPlaybackSpeed(speed: Float) {
         try {
@@ -213,20 +200,15 @@ class ImprovedMainPlayerGestureListener(
                 val newParams = PlaybackParameters(speed, currentParams.pitch)
                 exoPlayer.setPlaybackParameters(newParams)
             }
-        } catch (e: Exception) {
-            if (DEBUG) Log.e(TAG, "Error setting playback speed", e)
-        }
+        } catch (e: Exception) { if (DEBUG) Log.e(TAG, "Error setting playback speed", e) }
     }
 
     override fun onHapticFeedback() {
         try {
             val vib = player.context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-            if (vib != null) {
-                if (android.os.Build.VERSION.SDK_INT >= 26) {
-                    vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION") vib.vibrate(25)
-                }
+            vib?.let {
+                if (android.os.Build.VERSION.SDK_INT >= 26) it.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                else @Suppress("DEPRECATION") it.vibrate(25)
             }
         } catch (_: Exception) { }
     }
