@@ -6,7 +6,6 @@ import android.view.View.OnTouchListener
 import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
 import org.schabi.newpipe.player.ui.PopupPlayerUi
-import kotlin.math.abs
 
 class PopupPlayerGestureListener(
     private val playerUi: PopupPlayerUi,
@@ -36,11 +35,13 @@ class PopupPlayerGestureListener(
                     holdStartTime = System.currentTimeMillis()
                 }
                 MotionEvent.ACTION_UP -> if (isHoldingFor2x) {
-                    stopSpeedBoost(); return true
+                    stopSpeedBoost()
+                    return true
                 }
             }
-            if (event.action == MotionEvent.ACTION_MOVE && !isHoldingFor2x
-                && holdStartTime > 0 && isCenterAreaTouch(event)) {
+            if (event.action == MotionEvent.ACTION_MOVE && !isHoldingFor2x &&
+                holdStartTime > 0 && isCenterAreaTouch(event)
+            ) {
                 val holdDuration = System.currentTimeMillis() - holdStartTime
                 if (holdDuration >= holdToSpeedDelay) {
                     startSpeedBoost()
@@ -91,8 +92,8 @@ class PopupPlayerGestureListener(
         val rightBound = width * (1 - safeMargin)
         val topBound = height * safeMargin
         val bottomBound = height * (1 - safeMargin)
-        return event.x >= leftBound && event.x <= rightBound
-            && event.y >= topBound && event.y <= bottomBound
+        return event.x >= leftBound && event.x <= rightBound &&
+            event.y >= topBound && event.y <= bottomBound
     }
 
     private fun startSpeedBoost() {
@@ -186,7 +187,9 @@ class PopupPlayerGestureListener(
         playerUi.popupLayoutParams.x += ((popupWidth - newWidth) / 2.0).toInt()
         playerUi.checkPopupPositionBounds()
         playerUi.updateScreenSize()
-        playerUi.changePopupSize(kotlin.math.min(playerUi.screenWidth.toDouble(), newWidth).toInt())
+        playerUi.changePopupSize(
+            kotlin.math.min(playerUi.screenWidth.toDouble(), newWidth).toInt()
+        )
         return true
     }
 
