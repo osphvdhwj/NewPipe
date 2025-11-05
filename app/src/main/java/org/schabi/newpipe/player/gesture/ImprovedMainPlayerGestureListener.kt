@@ -34,8 +34,10 @@ class ImprovedMainPlayerGestureListener(
                 downY = event.y
             }
             MotionEvent.ACTION_MOVE -> {
-                if (abs(event.x - downX) > touchSlopPx ||
-                    abs(event.y - downY) > touchSlopPx) {
+                if (
+                    abs(event.x - downX) > touchSlopPx ||
+                    abs(event.y - downY) > touchSlopPx
+                ) {
                     // movement cancels any long-press 2x internally
                 }
             }
@@ -72,17 +74,23 @@ class ImprovedMainPlayerGestureListener(
     ): Boolean {
         if (initialEvent == null || !playerUi.isFullscreen) return false
         val statusBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(
-            player.context, "status_bar_height"
+            player.context,
+            "status_bar_height"
         )
         val navigationBarHeight = org.schabi.newpipe.util.ThemeHelper.getAndroidDimenPx(
-            player.context, "navigation_bar_height"
+            player.context,
+            "navigation_bar_height"
         )
         val isTouchingStatusBar = initialEvent.y < statusBarHeight
         val isTouchingNavigationBar = initialEvent.y > (binding.root.height - navigationBarHeight)
         if (isTouchingStatusBar || isTouchingNavigationBar) return false
         val insideThreshold = kotlin.math.abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (!isMoving && (insideThreshold ||
-                kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY))) {
+        if (
+            !isMoving && (
+                insideThreshold ||
+                    kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY)
+                )
+        ) {
             return false
         }
         isMoving = true
@@ -217,7 +225,8 @@ class ImprovedMainPlayerGestureListener(
         player.exoPlayer?.let { exoPlayer ->
             val currentParams = exoPlayer.playbackParameters
             val newParams = com.google.android.exoplayer2.PlaybackParameters(
-                speed, currentParams.pitch
+                speed,
+                currentParams.pitch
             )
             exoPlayer.setPlaybackParameters(newParams)
         }
@@ -231,7 +240,8 @@ class ImprovedMainPlayerGestureListener(
             if (android.os.Build.VERSION.SDK_INT >= 26) {
                 it.vibrate(
                     android.os.VibrationEffect.createOneShot(
-                        25, android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                        25,
+                        android.os.VibrationEffect.DEFAULT_AMPLITUDE
                     )
                 )
             } else {
