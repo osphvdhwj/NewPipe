@@ -7,7 +7,6 @@ import android.widget.ProgressBar
 import org.schabi.newpipe.R
 import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
-import org.schabi.newpipe.player.Player
 import org.schabi.newpipe.player.helper.AudioReactor
 import org.schabi.newpipe.player.helper.PlayerHelper
 import org.schabi.newpipe.player.ui.MainPlayerUi
@@ -23,7 +22,9 @@ class ImprovedMainPlayerGestureListener(
 
     private var downX = 0f
     private var downY = 0f
-    private val touchSlopPx by lazy { (player.context.resources.displayMetrics.density * 6).toInt() }
+    private val touchSlopPx by lazy {
+        (player.context.resources.displayMetrics.density * 6).toInt()
+    }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         super.onTouch(v, event)
@@ -33,7 +34,8 @@ class ImprovedMainPlayerGestureListener(
                 downY = event.y
             }
             MotionEvent.ACTION_MOVE -> {
-                if (abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx) {
+                if (abs(event.x - downX) > touchSlopPx ||
+                    abs(event.y - downY) > touchSlopPx) {
                     // movement cancels any long-press 2x internally
                 }
             }
@@ -79,7 +81,8 @@ class ImprovedMainPlayerGestureListener(
         val isTouchingNavigationBar = initialEvent.y > (binding.root.height - navigationBarHeight)
         if (isTouchingStatusBar || isTouchingNavigationBar) return false
         val insideThreshold = kotlin.math.abs(movingEvent.y - initialEvent.y) <= MOVEMENT_THRESHOLD
-        if (!isMoving && (insideThreshold || kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY))) {
+        if (!isMoving && (insideThreshold ||
+                kotlin.math.abs(distanceX) > kotlin.math.abs(distanceY))) {
             return false
         }
         isMoving = true
@@ -213,7 +216,9 @@ class ImprovedMainPlayerGestureListener(
     override fun setPlaybackSpeed(speed: Float) {
         player.exoPlayer?.let { exoPlayer ->
             val currentParams = exoPlayer.playbackParameters
-            val newParams = com.google.android.exoplayer2.PlaybackParameters(speed, currentParams.pitch)
+            val newParams = com.google.android.exoplayer2.PlaybackParameters(
+                speed, currentParams.pitch
+            )
             exoPlayer.setPlaybackParameters(newParams)
         }
     }
