@@ -20,7 +20,6 @@ import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.FragmentActivity;
-import androidx.recyclerview.widget.ItemTouchHelper;
 
 import org.schabi.newpipe.R;
 import org.schabi.newpipe.databinding.PlayerBinding;
@@ -36,7 +35,6 @@ import org.schabi.newpipe.util.DeviceUtils;
 import org.schabi.newpipe.util.NavigationHelper;
 import org.schabi.newpipe.views.DraggableFitTextView;
 
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -97,7 +95,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     protected void initListeners() {
         super.initListeners();
         binding.screenRotationButton.setOnClickListener(makeOnClickListener(() -> {
-            if (!isVerticalVideo || (isLandscape() && PlayerHelper.globalScreenOrientationLocked(context))) {
+            if (!isVerticalVideo || (isLandscape()
+                    && PlayerHelper.globalScreenOrientationLocked(context))) {
                 player.getFragmentListener().ifPresent(
                         PlayerServiceEventListener::onScreenRotationButtonClicked);
             } else {
@@ -119,7 +118,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
                 settingsContentObserver);
         binding.getRoot().addOnLayoutChangeListener(this);
         binding.moreOptionsButton.setOnLongClickListener(v -> {
-            player.getFragmentListener().ifPresent(PlayerServiceEventListener::onMoreOptionsLongClicked);
+            player.getFragmentListener().ifPresent(
+                    PlayerServiceEventListener::onMoreOptionsLongClicked);
             hideControls(0, 0);
             hideSystemUIIfNeeded();
             return true;
@@ -168,7 +168,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
     private void initVideoPlayer() {
         setResizeMode(PlayerHelper.retrieveResizeModeFromPrefs(player));
-        binding.getRoot().setLayoutParams(new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+        binding.getRoot().setLayoutParams(
+                new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
     }
 
     private void setupDraggableFitLabel() {
@@ -196,7 +197,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         binding.topControls.setOrientation(LinearLayout.VERTICAL);
         binding.primaryControls.getLayoutParams().width = MATCH_PARENT;
         binding.secondaryControls.setVisibility(View.INVISIBLE);
-        binding.moreOptionsButton.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_expand_more));
+        binding.moreOptionsButton.setImageDrawable(AppCompatResources.getDrawable(
+                context, R.drawable.ic_expand_more));
         binding.share.setVisibility(View.VISIBLE);
         binding.openInBrowser.setVisibility(View.VISIBLE);
         binding.switchMute.setVisibility(View.VISIBLE);
@@ -268,14 +270,14 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
     private void onFragmentStopped() {
         if (player.isPlaying() || player.isLoading()) {
-            // Align with minimize on exit behavior
             if (PlayerHelper.getMinimizeOnExitAction(context)
                     == PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_POPUP) {
                 final FragmentActivity activity = (context instanceof FragmentActivity)
                         ? (FragmentActivity) context : null;
                 if (activity != null) {
                     player.setRecovery();
-                    NavigationHelper.playOnPopupPlayer(activity, player.getPlayQueue(), true);
+                    NavigationHelper.playOnPopupPlayer(
+                            activity, player.getPlayQueue(), true);
                 }
             } else if (PlayerHelper.getMinimizeOnExitAction(context)
                     == PlayerHelper.MinimizeMode.MINIMIZE_ON_EXIT_MODE_BACKGROUND) {
@@ -286,12 +288,9 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         }
     }
 
-    // Required by VideoPlayerUi
     @Override
     protected void onPlaybackSpeedClicked() {
         if (binding != null && binding.playbackSpeed != null) {
-            // Show the existing playback speed popup menu via base helper
-            // Delegate to VideoPlayerUi's menu which is wired in init
             binding.playbackSpeed.performClick();
         }
     }
@@ -346,14 +345,16 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     }
 
     public StreamSegmentAdapter.StreamSegmentListener getStreamSegmentListener() {
-        // Implement as anonymous class to satisfy non-functional interface
         return new StreamSegmentAdapter.StreamSegmentListener() {
             @Override
-            public void onSegmentClicked(final org.schabi.newpipe.info_list.StreamSegment segment) { }
+            public void onSegmentClicked(
+                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
             @Override
-            public void onSegmentLongClicked(final org.schabi.newpipe.info_list.StreamSegment segment) { }
+            public void onSegmentLongClicked(
+                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
             @Override
-            public void onSegmentSelected(final org.schabi.newpipe.info_list.StreamSegment segment) { }
+            public void onSegmentSelected(
+                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
         };
     }
 
