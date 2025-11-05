@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.ContentObserver;
+import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -25,6 +26,7 @@ import org.schabi.newpipe.R;
 import org.schabi.newpipe.databinding.PlayerBinding;
 import org.schabi.newpipe.fragments.detail.VideoDetailFragment;
 import org.schabi.newpipe.info_list.StreamSegmentAdapter;
+import org.schabi.newpipe.info_list.StreamSegmentItem;
 import org.schabi.newpipe.local.dialog.PlaylistDialog;
 import org.schabi.newpipe.player.Player;
 import org.schabi.newpipe.player.event.PlayerServiceEventListener;
@@ -40,7 +42,8 @@ import java.util.Optional;
 /**
  * Main player UI implementation with enhanced gesture control.
  */
-public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutChangeListener {
+public final class MainPlayerUi extends VideoPlayerUi 
+        implements View.OnLayoutChangeListener {
     private static final String TAG = MainPlayerUi.class.getSimpleName();
 
     private static final int DETAIL_ROOT_MINIMUM_HEIGHT = 85; // dp
@@ -57,6 +60,12 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
 
     private ImprovedMainPlayerGestureListener improvedGestureListener;
 
+    /**
+     * Constructor for MainPlayerUi.
+     *
+     * @param player the player instance
+     * @param playerBinding the player binding
+     */
     public MainPlayerUi(@NonNull final Player player,
                         @NonNull final PlayerBinding playerBinding) {
         super(player, playerBinding);
@@ -107,7 +116,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
                 getParentActivity().map(FragmentActivity::getSupportFragmentManager)
                         .ifPresent(fragmentManager ->
                                 PlaylistDialog.showForPlayQueue(player, fragmentManager)));
-        settingsContentObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+        settingsContentObserver = new ContentObserver(
+                new Handler(Looper.getMainLooper())) {
             @Override
             public void onChange(final boolean selfChange) {
                 setupScreenRotationButton();
@@ -202,8 +212,10 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         binding.share.setVisibility(View.VISIBLE);
         binding.openInBrowser.setVisibility(View.VISIBLE);
         binding.switchMute.setVisibility(View.VISIBLE);
-        binding.playerCloseButton.setVisibility(isFullscreen ? View.GONE : View.VISIBLE);
-        binding.metadataView.setVisibility(isFullscreen ? View.VISIBLE : View.GONE);
+        binding.playerCloseButton.setVisibility(
+                isFullscreen ? View.GONE : View.VISIBLE);
+        binding.metadataView.setVisibility(
+                isFullscreen ? View.VISIBLE : View.GONE);
         binding.audioTrackTextView.setMaxWidth(Integer.MAX_VALUE);
         ensureControlButtonsVisible();
     }
@@ -241,14 +253,24 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
     }
 
     @Override
+    protected float calculateMaxEndScreenThumbnailHeight(
+            @NonNull final Bitmap bitmap) {
+        final int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
+        // Cap end-screen height to at most half the screen for safe UI
+        return Math.min(bitmap.getHeight(), screenHeight / 2.0f);
+    }
+
+    @Override
     public void onBroadcastReceived(final Intent intent) {
         super.onBroadcastReceived(intent);
         if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction())) {
             closeItemsList();
-        } else if (VideoDetailFragment.ACTION_VIDEO_FRAGMENT_STOPPED.equals(intent.getAction())) {
+        } else if (VideoDetailFragment.ACTION_VIDEO_FRAGMENT_STOPPED
+                .equals(intent.getAction())) {
             fragmentIsVisible = false;
             onFragmentStopped();
-        } else if (VideoDetailFragment.ACTION_VIDEO_FRAGMENT_RESUMED.equals(intent.getAction())) {
+        } else if (VideoDetailFragment.ACTION_VIDEO_FRAGMENT_RESUMED
+                .equals(intent.getAction())) {
             fragmentIsVisible = true;
             player.useVideoSource(true);
             if (!isControlsVisible()) {
@@ -265,7 +287,8 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
             binding.playbackControlRoot.setPadding(0, 0, 0, 0);
         }
         binding.itemsListPanel.setPadding(0, 0, 0, 0);
-        player.getFragmentListener().ifPresent(PlayerServiceEventListener::onViewCreated);
+        player.getFragmentListener().ifPresent(
+                PlayerServiceEventListener::onViewCreated);
     }
 
     private void onFragmentStopped() {
@@ -295,15 +318,28 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         }
     }
 
+    /**
+     * Check if the video is in vertical format.
+     *
+     * @return true if video is vertical
+     */
     public boolean isVerticalVideo() {
         return isVerticalVideo;
     }
 
+    /**
+     * Check if device is in landscape orientation.
+     *
+     * @return true if in landscape
+     */
     public boolean isLandscape() {
         return context.getResources().getConfiguration().orientation
                 == Configuration.ORIENTATION_LANDSCAPE;
     }
 
+    /**
+     * Toggle fullscreen mode.
+     */
     public void toggleFullscreen() {
         isFullscreen = !isFullscreen;
         if (isFullscreen) {
@@ -314,47 +350,69 @@ public final class MainPlayerUi extends VideoPlayerUi implements View.OnLayoutCh
         setupElementsVisibility();
     }
 
+    /**
+     * Close any open item lists (queue/segments).
+     */
     public void closeItemsList() {
         try {
             binding.itemsListPanel.setVisibility(View.GONE);
-        } catch (final Exception ignored) { }
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
     }
 
+    /**
+     * Show or hide the Kodi button.
+     */
     public void showHideKodiButton() {
         try {
             binding.playWithKodi.setVisibility(View.VISIBLE);
-        } catch (final Exception ignored) { }
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
     }
 
+    /**
+     * Setup the screen rotation button.
+     */
     public void setupScreenRotationButton() {
         try {
             binding.screenRotationButton.setVisibility(View.VISIBLE);
-        } catch (final Exception ignored) { }
+        } catch (final Exception ignored) {
+            // Ignore exceptions
+        }
     }
 
+    /**
+     * Check landscape orientation and adjust fullscreen if needed.
+     */
     public void checkLandscape() {
         if (isFullscreen && !isLandscape()) {
             toggleFullscreen();
         }
     }
 
+    /**
+     * Get the parent activity.
+     *
+     * @return Optional containing the parent activity
+     */
     public Optional<FragmentActivity> getParentActivity() {
         final FragmentActivity activity = (context instanceof FragmentActivity)
                 ? (FragmentActivity) context : null;
         return Optional.ofNullable(activity);
     }
 
+    /**
+     * Get the stream segment listener.
+     *
+     * @return the stream segment listener
+     */
     public StreamSegmentAdapter.StreamSegmentListener getStreamSegmentListener() {
-        return new StreamSegmentAdapter.StreamSegmentListener() {
-            @Override
-            public void onSegmentClicked(
-                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
-            @Override
-            public void onSegmentLongClicked(
-                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
-            @Override
-            public void onSegmentSelected(
-                    final org.schabi.newpipe.info_list.StreamSegment segment) { }
+        return (item, seconds) -> {
+            segmentAdapter.selectSegment(item);
+            player.seekTo(seconds * 1000);
+            player.triggerProgressUpdate();
         };
     }
 
